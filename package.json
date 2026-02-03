@@ -1,0 +1,21 @@
+{
+  "name": "final",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "cd server && npm i && cd ../client && npm i && npm run build",
+    "start": "node server/server.js",
+    "dev": "npm run dev --prefix server"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": "22.19.0"
+  },
+  "dependencies": {
+    "pg": "^8.18.0"
+  }
+}
