@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 function App() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -77,25 +78,25 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      
       {/* Navigation Header */}
-      <header className="bg-gradient-to-r from-emerald-900 via-teal-700 to-cyan-900 text-white shadow-xl sticky top-0 z-50">
+      <header className="bg-black text-white shadow-xl sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-2">
               <div className="text-4xl">🎓</div>
-              <h1 className="text-3xl font-bold">EduHub</h1>
+              <h1 className="text-3xl font-bold">Kormaia</h1>
             </div>
             <ul className="hidden md:flex space-x-8 font-medium text-lg">
-              <li><a href="#home" className="hover:text-pink-200 transition duration-300">Home</a></li>
-              <li><a href="#courses" className="hover:text-pink-200 transition duration-300">Courses</a></li>
-              <li><a href="#about" className="hover:text-pink-200 transition duration-300">About</a></li>
-              <li><a href="#instructors" className="hover:text-pink-200 transition duration-300">Instructors</a></li>
+              <li><Link to="/home" className="hover:text-emerald-200 transition duration-300  border-transparent border-1 rounded-md hover:border-emerald-200 p-1">Home</Link></li>
+              <li><Link to="/courses" className="hover:text-emerald-200 transition duration-300 border-transparent border-1 rounded-md hover:border-emerald-200 p-1">Courses</Link></li>
+              <li><Link to="/about" className="hover:text-emerald-200 transition duration-300 border-transparent border-1 rounded-md hover:border-emerald-200 p-1">About</Link></li>
             </ul>
             <div className="flex gap-3">
               <button className="hidden md:block bg-white/20 backdrop-blur-sm px-5 py-2 rounded-lg font-semibold hover:bg-white/30 transition duration-300">
                 Log In
               </button>
-              <button className="bg-white text-cyan-800 px-6 py-2 rounded-lg font-semibold hover:shadow-xl hover:-translate-y-0.5 transition duration-300">
+              <button className="bg-white text-emerald-800 px-6 py-2 rounded-lg font-semibold hover:shadow-xl hover:-translate-y-0.5 transition duration-300">
                 Sign Up
               </button>
             </div>
@@ -104,13 +105,13 @@ function App() {
       </header>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-emerald-900 via-teal-700 to-cyan-900 text-white py-20 md:py-28">
+      <section className="bg-black text-white py-20 md:py-28">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-5xl md:text-6xl font-extrabold mb-6 leading-tight">
                 Transform Your Future with 
-                <span className="block text-pink-200">Online Learning</span>
+                <span className="block text-emerald-200">Online Learning</span>
               </h2>
               <p className="text-xl mb-8 opacity-95 leading-relaxed">
                 Join thousands of students worldwide. Learn from industry experts, earn certifications, 
@@ -124,25 +125,22 @@ function App() {
             </div>
             <div className="hidden md:block">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-emerald-400 rounded-3xl blur-2xl opacity-50"></div>
+                <div className="absolute inset-0 bg-emerald-800 rounded-3xl blur-2xl opacity-50"></div>
                 <div className="relative bg-white/10 backdrop-blur-lg rounded-3xl p-8 border border-white/20">
                   <div className="space-y-4">
                     <div className="flex items-center space-x-3 bg-white/20 rounded-lg p-4">
-                      <div className="text-4xl">✨</div>
                       <div>
                         <p className="font-semibold">1000+ Courses</p>
                         <p className="text-sm opacity-80">Expert-led programs</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-3 bg-white/20 rounded-lg p-4">
-                      <div className="text-4xl">🏆</div>
                       <div>
                         <p className="font-semibold">Certified Learning</p>
                         <p className="text-sm opacity-80">Industry recognized</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-3 bg-white/20 rounded-lg p-4">
-                      <div className="text-4xl">💼</div>
                       <div>
                         <p className="font-semibold">Career Support</p>
                         <p className="text-sm opacity-80">Job placement assistance</p>
@@ -264,70 +262,6 @@ function App() {
               <p className="text-gray-600">Try adjusting your search or filter</p>
             </div>
           )}
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-800 mb-3">Why Choose EduHub?</h2>
-            <p className="text-gray-600 text-lg">Your success is our priority</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-8 rounded-2xl text-center hover:shadow-xl hover:-translate-y-1 transition duration-300">
-              <div className="text-6xl mb-4">📚</div>
-              <h3 className="text-xl font-bold mb-3 text-gray-800">Quality Education</h3>
-              <p className="text-gray-600 leading-relaxed">
-                Learn from industry-leading instructors with cutting-edge curriculum
-              </p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-8 rounded-2xl text-center hover:shadow-xl hover:-translate-y-1 transition duration-300">
-              <div className="text-6xl mb-4">⏰</div>
-              <h3 className="text-xl font-bold mb-3 text-gray-800">Flexible Learning</h3>
-              <p className="text-gray-600 leading-relaxed">
-                Study at your own pace with 24/7 access to all course materials
-              </p>
-            </div>
-
-            <div className="bg-gradient-to-br from-pink-50 to-pink-100 p-8 rounded-2xl text-center hover:shadow-xl hover:-translate-y-1 transition duration-300">
-              <div className="text-6xl mb-4">🎓</div>
-              <h3 className="text-xl font-bold mb-3 text-gray-800">Certified Programs</h3>
-              <p className="text-gray-600 leading-relaxed">
-                Earn industry-recognized certificates upon successful completion
-              </p>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-50 to-green-100 p-8 rounded-2xl text-center hover:shadow-xl hover:-translate-y-1 transition duration-300">
-              <div className="text-6xl mb-4">💼</div>
-              <h3 className="text-xl font-bold mb-3 text-gray-800">Career Support</h3>
-              <p className="text-gray-600 leading-relaxed">
-                Get dedicated job placement assistance and career guidance
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">
-            Ready to Start Your Learning Journey?
-          </h2>
-          <p className="text-xl mb-8 opacity-95">
-            Join over 50,000 students who are already transforming their careers with EduHub
-          </p>
-          <div className="flex flex-wrap gap-4 justify-center">
-            <button className="bg-white text-purple-600 px-10 py-4 rounded-lg text-lg font-bold hover:shadow-2xl hover:scale-105 transition duration-300">
-              Get Started Free
-            </button>
-            <button className="bg-transparent border-2 border-white text-white px-10 py-4 rounded-lg text-lg font-bold hover:bg-white hover:text-purple-600 transition duration-300">
-              View All Courses
-            </button>
-          </div>
         </div>
       </section>
 
