@@ -27,12 +27,16 @@ export default function Navbar() {
             </li>
           </ul>
           <div className="flex gap-3">
-            <button className="hidden md:block bg-white/20 backdrop-blur-sm px-5 py-2 rounded-lg font-semibold hover:bg-white/30 transition duration-300">
-              Log In
-            </button>
-            <button className="bg-white text-emerald-800 px-6 py-2 rounded-lg font-semibold hover:shadow-xl hover:-translate-y-0.5 transition duration-300">
-              Sign Up
-            </button>
+            <Link to="/login">
+              <button className="hidden md:block bg-white/20 backdrop-blur-sm px-5 py-2 rounded-lg font-semibold hover:bg-white/30 transition duration-300">
+                Log In
+              </button>
+            </Link>
+            <Link to="/signup">
+              <button className="bg-white text-emerald-800 px-6 py-2 rounded-lg font-semibold hover:shadow-xl hover:-translate-y-0.5 transition duration-300">
+                Sign Up
+              </button>
+            </Link>
           </div>
         </nav>
       </div>
