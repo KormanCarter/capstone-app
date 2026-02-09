@@ -4,7 +4,10 @@ const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
-const DB_URL = process.env.DB_URL || "postgresql://postgres_fwcd_user:QppNSwd21Pev5ItNIy246Ah21znp0jMI@dpg-d610ovl6ubrc739k1dsg-a.oregon-postgres.render.com/postgres_fwcd";
+const { auth } = require('express-openid-connect');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+
+const DB_URL = process.env.DB_URL;
 const pool = new Pool({
   connectionString: DB_URL,
   ssl: {
@@ -17,12 +20,21 @@ const PORT = process.env.PORT || 3001;
 
 const app = express();
 
+// Auth0 configuration
+const config = {
+  authRequired: false,
+  auth0Logout: true,
+  secret: process.env.AUTH0_SECRET,
+  baseURL: process.env.AUTH0_BASE_URL,
+  clientID: process.env.AUTH0_CLIENT_ID,
+  issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL
+};
+
+// auth router attaches /login, /logout, and /callback routes to the baseURL
+app.use(auth(config));
+
 // CORS configuration
-app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'], // Allow both Vite and React dev servers
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
-}));
+
 
 app.use(express.static(path.resolve(__dirname, "../client/dist")));
 app.use(express.json());
@@ -75,6 +87,37 @@ app.get("/api/test", async (req, res) => {
 // Handle GET requests to /api route
 app.get("/api", (req, res) => {
   res.json({ message: "Hello from server!" });
+});
+
+// Auth0 routes
+app.get('/', (req, res) => {
+  res.send(req.oidc.isAuthenticated() ? 'Logged in' : 'Logged out');
+});
+
+// Check authentication status
+app.get('/api/auth/me', (req, res) => {
+  if (req.oidc.isAuthenticated()) {
+    res.json({
+      isAuthenticated: true,
+      user: req.oidc.user
+    });
+  } else {
+    res.json({
+      isAuthenticated: false,
+      user: null
+    });
+  }
+});
+
+// Protected route example
+app.get('/api/protected', (req, res) => {
+  if (!req.oidc.isAuthenticated()) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  res.json({ 
+    message: 'This is a protected route!',
+    user: req.oidc.user 
+  });
 });
 
 // Get all classes

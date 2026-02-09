@@ -4,17 +4,19 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "postgres-db": "node --watch --env-file=.env server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch --env-file=.env server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+    
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@auth0/auth0-react": "^2.13.0",
     "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "express-openid-connect": "^2.19.4",
     "pg": "^8.18.0"
   }
 }
