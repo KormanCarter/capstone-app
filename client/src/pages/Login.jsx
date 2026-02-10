@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from '../contexts/AuthContext'
 import Navbar from '../components/Navbar'
 
 export default function Login() {
-  const { loginWithRedirect, isAuthenticated, user, isLoading } = useAuth0()
+  const { login, loginWithGoogle, isAuthenticated, loading } = useAuth()
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   })
+  const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Redirect to home if already authenticated
   useEffect(() => {
@@ -23,20 +25,36 @@ export default function Login() {
       ...formData,
       [e.target.name]: e.target.value
     })
+    // Clear error when user starts typing
+    if (error) setError('')
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    // Use Auth0's database connection for email/password login
-    loginWithRedirect()
+    setIsSubmitting(true)
+    setError('')
+
+    if (!formData.email || !formData.password) {
+      setError('Please fill in all fields')
+      setIsSubmitting(false)
+      return
+    }
+
+    const result = await login(formData.email, formData.password)
+    
+    if (result.success) {
+      navigate('/home')
+    } else {
+      setError(result.error || 'Login failed. Please try again.')
+    }
+    setIsSubmitting(false)
   }
 
   const handleGoogleLogin = () => {
-    // Use default Auth0 login (will show all available options)
-    loginWithRedirect()
+    loginWithGoogle()
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -57,6 +75,12 @@ export default function Login() {
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Log In</h2>
             
+            {error && (
+              <div className="mb-4 p-3 border border-red-300 bg-red-50 text-red-700 rounded-lg">
+                {error}
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -69,6 +93,7 @@ export default function Login() {
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   placeholder="john.doe@example.com"
+                  required
                 />
               </div>
 
@@ -83,6 +108,7 @@ export default function Login() {
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   placeholder="••••••••"
+                  required
                 />
               </div>
 
@@ -101,9 +127,10 @@ export default function Login() {
 
               <button
                 type="submit"
-                className="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold hover:bg-emerald-700 hover:shadow-xl transition duration-300"
+                disabled={isSubmitting}
+                className="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold hover:bg-emerald-700 hover:shadow-xl transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Log In
+                {isSubmitting ? 'Logging in...' : 'Log In'}
               </button>
             </form>
 

@@ -41,5 +41,3 @@ export default function AboutPage() {
         </div>
     )
 }
-
-export { AboutPage }

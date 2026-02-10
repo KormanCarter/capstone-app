@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from '../contexts/AuthContext'
 import Navbar from '../components/Navbar'
 
 export default function SignUp() {
-  const { loginWithRedirect, isAuthenticated, user, isLoading } = useAuth0()
+  const { register, loginWithGoogle, isAuthenticated, loading } = useAuth()
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
-    password: ''
+    password: '',
+    confirmPassword: ''
   })
+  const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Redirect to home if already authenticated
   useEffect(() => {
@@ -23,28 +27,49 @@ export default function SignUp() {
       ...formData,
       [e.target.name]: e.target.value
     })
+    // Clear error when user starts typing
+    if (error) setError('')
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    // Use Auth0's database connection for email/password signup
-    loginWithRedirect({
-      authorizationParams: {
-        screen_hint: "signup",
-      }
-    })
+    setIsSubmitting(true)
+    setError('')
+
+    // Basic validation
+    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+      setError('Please fill in all fields')
+      setIsSubmitting(false)
+      return
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match')
+      setIsSubmitting(false)
+      return
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long')
+      setIsSubmitting(false)
+      return
+    }
+
+    const result = await register(formData.email, formData.password, formData.name)
+    
+    if (result.success) {
+      navigate('/home')
+    } else {
+      setError(result.error || 'Registration failed. Please try again.')
+    }
+    setIsSubmitting(false)
   }
 
   const handleGoogleSignUp = () => {
-    // Use default Auth0 login (will show all available options including Google if configured)
-    loginWithRedirect({
-      authorizationParams: {
-        screen_hint: "signup"
-      }
-    })
+    loginWithGoogle()
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -65,7 +90,28 @@ export default function SignUp() {
           <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
             <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Create Account</h2>
             
+            {error && (
+              <div className="mb-4 p-3 border border-red-300 bg-red-50 text-red-700 rounded-lg">
+                {error}
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  placeholder="John Doe"
+                  required
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Email Address
@@ -93,14 +139,32 @@ export default function SignUp() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   placeholder="••••••••"
                   required
+                  minLength="6"
+                />
+                <p className="text-sm text-gray-500 mt-1">Password must be at least 6 characters</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  placeholder="••••••••"
+                  required
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold hover:bg-emerald-700 hover:shadow-xl transition duration-300"
+                disabled={isSubmitting}
+                className="w-full bg-emerald-600 text-white py-3 rounded-lg font-bold hover:bg-emerald-700 hover:shadow-xl transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Account
+                {isSubmitting ? 'Creating Account...' : 'Create Account'}
               </button>
             </form>
 
