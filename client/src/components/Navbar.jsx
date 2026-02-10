@@ -1,19 +1,17 @@
-import { Link } from 'react-router-dom'
-import { useAuth0 } from '@auth0/auth0-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Navbar() {
-  const { isAuthenticated, user, logout, loginWithRedirect, isLoading } = useAuth0()
+  const { isAuthenticated, user, logout, loading } = useAuth()
+  const navigate = useNavigate()
 
   const handleLogin = () => {
-    loginWithRedirect()
+    navigate('/login')
   }
 
-  const handleLogout = () => {
-    logout({
-      logoutParams: {
-        returnTo: window.location.origin
-      }
-    })
+  const handleLogout = async () => {
+    await logout()
+    navigate('/home')
   }
 
   return (
@@ -43,20 +41,16 @@ export default function Navbar() {
           </ul>
           
           <div className="flex items-center gap-3">
-            {!isLoading && (
+            {!loading && (
               <>
                 {isAuthenticated ? (
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
-                      {user?.picture && (
-                        <img 
-                          src={user.picture} 
-                          alt="Profile" 
-                          className="w-8 h-8 rounded-full border-2 border-white/30"
-                        />
-                      )}
+                      <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-semibold text-sm">
+                        {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                      </div>
                       <span className="text-sm font-medium">
-                        Hi, {user?.given_name || user?.name || 'User'}!
+                        Hi, {user?.name?.split(' ')[0] || 'User'}!
                       </span>
                     </div>
                     <button 
