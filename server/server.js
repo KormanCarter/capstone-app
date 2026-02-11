@@ -15,13 +15,7 @@ const PORT = process.env.PORT || 3001;
 
 const app = express();
 
-// Configure CORS
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-domain.com'] // Replace with your production domain
-    : ['http://localhost:5174', 'http://localhost:5173', 'http://localhost:3000'],
-  credentials: true
-}));
+
 
 app.use(express.static(path.resolve(__dirname, "../client/dist")));
 app.use(express.json());
@@ -133,15 +127,19 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   );
 
   app.get('/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: '/login?error=auth_failed' }),
+    passport.authenticate('google', { failureRedirect: 'http://localhost:5174/login?error=auth_failed' }),
     (req, res) => {
-      // Successful authentication, redirect to home
-      res.redirect('/home');
+      // Successful authentication, redirect back to client
+      res.redirect('http://localhost:5174/home');
     }
   );
 } else {
   // If Google OAuth is not configured, return an error
   app.get('/auth/google', (req, res) => {
+    res.status(500).json({ message: 'Google OAuth not configured' });
+  });
+
+  app.get('/auth/google/callback', (req, res) => {
     res.status(500).json({ message: 'Google OAuth not configured' });
   });
 }
@@ -293,6 +291,29 @@ app.get("/api/search-classes", isAuthenticated, async (req, res) => {
     });
   }
 });
+// Catch-all handler for unmatched API routes
+app.use('/api', (req, res) => {
+  res.status(404).json({ message: 'API endpoint not found' });
+});
+
+app.use('/auth', (req, res) => {
+  res.status(404).json({ message: 'Auth endpoint not found' });
+});
+
+// Serve React app for all other routes (SPA support)  
+app.get('/', (req, res) => {
+  res.sendFile(path.resolve(__dirname, '../client/dist', 'index.html'));
+});
+
+// Error handling middleware (must be last)
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ 
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'production' ? {} : err.stack
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Server listening on ${PORT}`);
 });
