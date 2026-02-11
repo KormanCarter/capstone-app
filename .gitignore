@@ -1,8 +1,2 @@
 node_modules
-
-# Environment variables (contains secrets)
-*.env
 .env
-.env.local
-.env.production
-.env.staging

@@ -1,19 +1,6 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { Link } from 'react-router-dom'
 
 export default function Navbar() {
-  const { isAuthenticated, user, logout, loading } = useAuth()
-  const navigate = useNavigate()
-
-  const handleLogin = () => {
-    navigate('/login')
-  }
-
-  const handleLogout = async () => {
-    await logout()
-    navigate('/home')
-  }
-
   return (
     <header className="bg-black text-white shadow-xl sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -39,47 +26,21 @@ export default function Navbar() {
               </Link>
             </li>
           </ul>
-          
-          <div className="flex items-center gap-3">
-            {!loading && (
-              <>
-                {isAuthenticated ? (
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-semibold text-sm">
-                        {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                      </div>
-                      <span className="text-sm font-medium">
-                        Hi, {user?.name?.split(' ')[0] || 'User'}!
-                      </span>
-                    </div>
-                    <button 
-                      onClick={handleLogout}
-                      className="bg-white/20 backdrop-blur-sm px-5 py-2 rounded-lg font-semibold hover:bg-white/30 transition duration-300"
-                    >
-                      Log Out
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <button 
-                      onClick={handleLogin}
-                      className="hidden md:block bg-white/20 backdrop-blur-sm px-5 py-2 rounded-lg font-semibold hover:bg-white/30 transition duration-300"
-                    >
-                      Log In
-                    </button>
-                    <Link to="/signup">
-                      <button className="bg-white text-emerald-800 px-6 py-2 rounded-lg font-semibold hover:shadow-xl hover:-translate-y-0.5 transition duration-300">
-                        Sign Up
-                      </button>
-                    </Link>
-                  </>
-                )}
-              </>
-            )}
+          <div className="flex gap-3">
+            <Link to="/login">
+              <button className="hidden md:block bg-white/20 backdrop-blur-sm px-5 py-2 rounded-lg font-semibold hover:bg-white/30 transition duration-300">
+                Log In
+              </button>
+            </Link>
+            <Link to="/signup">
+              <button className="bg-white text-emerald-800 px-6 py-2 rounded-lg font-semibold hover:shadow-xl hover:-translate-y-0.5 transition duration-300">
+                Sign Up
+              </button>
+            </Link>
           </div>
         </nav>
       </div>
     </header>
   )
 }
+
