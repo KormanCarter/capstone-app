@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
     google_id VARCHAR(255), -- for Google OAuth
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    classes TEXT[] DEFAULT '{}'
+    classes TEXT[] DEFAULT '{}',
+    is_admin BOOLEAN DEFAULT FALSE
 );
 
 -- Create session table for express-session with connect-pg-simple

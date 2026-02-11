@@ -38,6 +38,13 @@ export default function Navbar() {
                 About
               </Link>
             </li>
+            {isAuthenticated && user?.is_admin && (
+              <li>
+                <Link to="/admin" className="hover:text-emerald-200 transition duration-300 border-transparent border-1 rounded-md hover:border-emerald-200 p-1">
+                  Admin
+                </Link>
+              </li>
+            )}
           </ul>
           
           <div className="flex items-center gap-3">

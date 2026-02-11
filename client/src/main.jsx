@@ -8,6 +8,7 @@ import CoursesPage from './pages/courses.jsx'
 import AboutPage from './pages/About.jsx'
 import SignUp from './pages/SignUp.jsx'
 import Login from './pages/Login.jsx'
+import AdminPage from './pages/Admin.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 
 createRoot(document.getElementById('root')).render(
@@ -21,6 +22,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/about" element={<AboutPage />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/admin" element={<AdminPage />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

@@ -49,6 +49,23 @@ const isAuthenticated = (req, res, next) => {
   res.status(401).json({ message: 'Not authenticated' });
 };
 
+// Middleware to check admin authentication
+const isAdmin = (req, res, next) => {
+  console.log('Admin check - User:', req.user);
+  console.log('Admin check - Authenticated:', req.isAuthenticated());
+  console.log('Admin check - Is Admin:', req.user?.is_admin);
+  
+  if (req.isAuthenticated() && req.user.is_admin) {
+    return next();
+  }
+  res.status(403).json({ 
+    message: 'Admin access required',
+    authenticated: req.isAuthenticated(),
+    isAdmin: req.user?.is_admin,
+    user: req.user?.email
+  });
+};
+
 // Auth Routes
 // Local registration
 app.post('/auth/register', async (req, res) => {
@@ -82,7 +99,8 @@ app.post('/auth/register', async (req, res) => {
         user: { 
           id: newUser.rows[0].id, 
           email: newUser.rows[0].email, 
-          name: newUser.rows[0].name 
+          name: newUser.rows[0].name,
+          is_admin: newUser.rows[0].is_admin || false
         } 
       });
     });
@@ -113,7 +131,8 @@ app.post('/auth/login', (req, res, next) => {
         user: { 
           id: user.id, 
           email: user.email, 
-          name: user.name 
+          name: user.name,
+          is_admin: user.is_admin || false
         } 
       });
     });
@@ -167,7 +186,8 @@ app.get('/auth/user', (req, res) => {
       user: { 
         id: req.user.id, 
         email: req.user.email, 
-        name: req.user.name 
+        name: req.user.name,
+        is_admin: req.user.is_admin || false
       } 
     });
   } else {
@@ -291,6 +311,175 @@ app.get("/api/search-classes", isAuthenticated, async (req, res) => {
     });
   }
 });
+
+// Admin Routes
+// Get all users (admin only)
+app.get("/api/admin/users", isAdmin, async (req, res) => {
+  try {
+    console.log('Fetching users from database...');
+    
+    // First check what columns exist in the users table
+    const tableInfo = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' 
+      ORDER BY ordinal_position
+    `);
+    console.log('Available columns in users table:', tableInfo.rows.map(r => r.column_name));
+    
+    // Only select columns that actually exist
+    const availableColumns = tableInfo.rows.map(r => r.column_name);
+    const columnsToSelect = ['id', 'email', 'name', 'google_id', 'created_at', 'updated_at', 'is_admin']
+      .filter(col => availableColumns.includes(col));
+    
+    // Add classes column if it exists
+    if (availableColumns.includes('classes')) {
+      columnsToSelect.push('classes');
+    }
+    
+    console.log('Selecting columns:', columnsToSelect);
+    
+    const result = await pool.query(`SELECT ${columnsToSelect.join(', ')} FROM users ORDER BY id`);
+    console.log('Users query successful, found', result.rowCount, 'users');
+    
+    // Add default empty classes array if column doesn't exist
+    const usersWithClasses = result.rows.map(user => ({
+      ...user,
+      classes: user.classes || []
+    }));
+    
+    res.json(usersWithClasses);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    console.error('Error details:', error.message);
+    console.error('Error code:', error.code);
+    res.status(500).json({ 
+      error: 'Failed to fetch users',
+      message: error.message,
+      code: error.code
+    });
+  }
+});
+
+// Update user (admin only)
+app.put("/api/admin/users/:id", isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, classes, is_admin } = req.body;
+    
+    console.log('Updating user:', { id, name, email, classes, is_admin });
+    
+    // Ensure classes is an array
+    const classesArray = Array.isArray(classes) ? classes : (classes ? [classes] : []);
+    
+    const result = await pool.query(
+      'UPDATE users SET name = $1, email = $2, classes = $3, is_admin = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING id, email, name, classes, is_admin',
+      [name, email, classesArray, is_admin || false, id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    console.log('User updated successfully:', result.rows[0]);
+    res.json({ message: 'User updated successfully', user: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Failed to update user', message: error.message });
+  }
+});
+
+// Delete user (admin only)
+app.delete("/api/admin/users/:id", isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Prevent admin from deleting themselves
+    if (parseInt(id) === req.user.id) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+    
+    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING email', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Get all classes (admin only)
+app.get("/api/admin/classes", isAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM class2 ORDER BY course_id');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching classes:', error);
+    res.status(500).json({ error: 'Failed to fetch classes' });
+  }
+});
+
+// Update class (admin only)
+app.put("/api/admin/classes/:id", isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { course_title, course_description, classroom_number, capacity, credit_hours, tuition_cost } = req.body;
+    
+    const result = await pool.query(
+      'UPDATE class2 SET course_title = $1, course_description = $2, classroom_number = $3, capacity = $4, credit_hours = $5, tuition_cost = $6 WHERE id = $7 RETURNING *',
+      [course_title, course_description, classroom_number, capacity, credit_hours, tuition_cost, id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Class not found' });
+    }
+    
+    res.json({ message: 'Class updated successfully', class: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating class:', error);
+    res.status(500).json({ error: 'Failed to update class' });
+  }
+});
+
+// Add new class (admin only)
+app.post("/api/admin/classes", isAdmin, async (req, res) => {
+  try {
+    const { course_id, course_title, course_description, classroom_number, capacity, credit_hours, tuition_cost } = req.body;
+    
+    const result = await pool.query(
+      'INSERT INTO class2 (course_id, course_title, course_description, classroom_number, capacity, credit_hours, tuition_cost) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [course_id, course_title, course_description, classroom_number, capacity, credit_hours, tuition_cost]
+    );
+    
+    res.json({ message: 'Class added successfully', class: result.rows[0] });
+  } catch (error) {
+    console.error('Error adding class:', error);
+    res.status(500).json({ error: 'Failed to add class' });
+  }
+});
+
+// Delete class (admin only)
+app.delete("/api/admin/classes/:id", isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query('DELETE FROM class2 WHERE id = $1 RETURNING course_id', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Class not found' });
+    }
+    
+    res.json({ message: 'Class deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting class:', error);
+    res.status(500).json({ error: 'Failed to delete class' });
+  }
+});
+
 // Catch-all handler for unmatched API routes
 app.use('/api', (req, res) => {
   res.status(404).json({ message: 'API endpoint not found' });
