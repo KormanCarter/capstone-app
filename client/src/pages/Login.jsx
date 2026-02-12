@@ -1,13 +1,33 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import Header from '../../utilities/Header'
 import Footer from '../../utilities/Footer'
 
 export default function Login() {
+  const { login, loginWithGoogle, isAuthenticated, loading } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   })
+  const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/home')
+    }
+  }, [isAuthenticated, navigate])
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search)
+    if (searchParams.get('error') === 'auth_failed') {
+      setError('Google sign-in failed. Please try again.')
+    }
+  }, [location.search])
 
   const handleChange = (e) => {
     setFormData({
@@ -20,8 +40,31 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    console.log('Login form submitted:', formData)
-    // This is non-functional - just logs the data
+
+    if (!formData.email || !formData.password) {
+      setError('Please fill in all fields')
+      return
+    }
+
+    setIsSubmitting(true)
+    setError('')
+
+    const result = await login(formData.email, formData.password)
+    if (result.success) {
+      navigate('/home')
+    } else {
+      setError(result.error || 'Login failed. Please try again.')
+    }
+
+    setIsSubmitting(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-gray-300">Loading...</div>
+      </div>
+    )
   }
 
   return (
@@ -33,6 +76,12 @@ export default function Login() {
         <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-slate-900 rounded-2xl shadow-xl p-8 border border-slate-600">
             <h2 className="text-3xl font-bold text-gray-50 mb-6 text-center">Log In</h2>
+
+            {error && (
+              <div className="mb-4 p-3 rounded-lg border border-red-500/40 bg-red-950 text-red-200 text-sm">
+                {error}
+              </div>
+            )}
             
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
@@ -65,19 +114,6 @@ export default function Login() {
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-300">Remember me</span>
-                </label>
-                <a href="#" className="text-sm text-emerald-600 hover:text-emerald-700 font-semibold">
-                  Forgot password?
-                </a>
-              </div>
-
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -104,21 +140,13 @@ export default function Login() {
             </div>
 
             {/* Social Login Buttons */}
-            <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="mt-6">
               <button 
-                onClick={handleGoogleLogin}
+                onClick={loginWithGoogle}
                 type="button"
-                className="flex items-center justify-center px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700 transition duration-300"
+                className="w-full flex items-center justify-center px-4 py-3 border border-slate-600 rounded-lg hover:bg-slate-700 transition duration-300"
               >
-                <span className="text-sm font-semibold text-gray-50">Google</span>
-                
-              </button>
-              <button 
-                onClick={handleFacebookLogin}
-                type="button"
-                className="flex items-center justify-center px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700 transition duration-300"
-              >
-                <span className="text-sm font-semibold text-gray-50">GitHub</span>
+                <span className="text-sm font-semibold text-gray-50">Continue with Google</span>
               </button>
             </div>
           </div>
@@ -128,5 +156,3 @@ export default function Login() {
     </div>
   )
 }
-
-export { Login }

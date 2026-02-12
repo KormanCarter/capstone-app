@@ -10,9 +10,12 @@ export default function CoursesPage() {
 
     useEffect(() => {
         // Fetch courses from the backend
-        fetch('/api/class2')
+        fetch('/api/classes', { credentials: 'include' })
             .then(response => {
                 if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Please log in to view courses');
+                    }
                     throw new Error('Failed to fetch courses');
                 }
                 return response.json();

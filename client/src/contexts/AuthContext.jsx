@@ -98,8 +98,8 @@ export const AuthProvider = ({ children }) => {
   }
 
   const loginWithGoogle = () => {
-    // Redirect to Google OAuth (will show error if not configured)
-    window.location.href = '/auth/google'
+    const redirect = encodeURIComponent(window.location.origin)
+    window.location.href = `/auth/google?redirect=${redirect}`
   }
 
   const value = {
