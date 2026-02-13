@@ -10,7 +10,7 @@ export default function CoursesPage() {
 
     useEffect(() => {
         // Fetch courses from the backend
-        fetch('/api/classes', { credentials: 'include' })
+        fetch('/api/class2', { credentials: 'include' })
             .then(response => {
                 if (!response.ok) {
                     if (response.status === 401) {

@@ -245,8 +245,8 @@ app.get("/api", (req, res) => {
   res.json({ message: "Hello from server!" });
 });
 
-// Get all classes (protected route)
-app.get("/api/classes", isAuthenticated, async (req, res) => {
+// Get all classes (public route - authentication removed)
+app.get("/api/class2", async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM class2 ORDER BY id');
     res.json(result.rows);
