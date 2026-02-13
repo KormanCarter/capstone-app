@@ -2,40 +2,63 @@ import { useState, useEffect } from 'react';
 import Header from '../../utilities/Header.jsx'
 import Footer from '../../utilities/Footer.jsx'
 import Navbar from '../components/Navbar';
+import SearchBar from '../components/SearchBar';
 
 export default function CoursesPage() {
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    // Fetch courses based on search term
+    const fetchCourses = async (query = '') => {
+        setLoading(true);
+        setError(null);
+        
+        try {
+            const url = query 
+                ? `/api/search-classes?query=${encodeURIComponent(query)}`
+                : '/api/class2';
+            
+            const response = await fetch(url, { credentials: 'include' });
+            
+            if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('Please log in to view courses');
+                }
+                throw new Error('Failed to fetch courses');
+            }
+            
+            const data = await response.json();
+            setCourses(data);
+        } catch (err) {
+            console.error('Error:', err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        // Fetch courses from the backend
-        fetch('/api/class2', { credentials: 'include' })
-            .then(response => {
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        throw new Error('Please log in to view courses');
-                    }
-                    throw new Error('Failed to fetch courses');
-                }
-                return response.json();
-            })
-            .then(data => {
-                setCourses(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error('Error:', err);
-                setError(err.message);
-                setLoading(false);
-            });
+        fetchCourses();
     }, []);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            fetchCourses(searchTerm);
+        }, 500); 
+
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     return (
         <div className="min-h-screen bg-black">
             <Header />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <h1 className="text-4xl font-bold text-gray-50 mb-8">Available Courses</h1>
+                
+                {/* Search Bar */}
+                <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
                 
                 {loading && (
                     <p className="text-gray-400 text-xl">Loading courses...</p>

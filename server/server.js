@@ -245,7 +245,7 @@ app.get("/api", (req, res) => {
   res.json({ message: "Hello from server!" });
 });
 
-// Get all classes (public route - authentication removed)
+// REMOVED AUTHENTICATION -Put bacck authentication when done
 app.get("/api/class2", async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM class2 ORDER BY id');
@@ -256,8 +256,8 @@ app.get("/api/class2", async (req, res) => {
   }
 });
 
-// Search endpoint for class2 table (protected route)
-app.get("/api/search-classes", isAuthenticated, async (req, res) => {
+// Search endpoint for class2 table (public route - authentication removed)
+app.get("/api/search-classes", async (req, res) => {
   try {
     const { query } = req.query;
     console.log('Search request received, query:', query);
