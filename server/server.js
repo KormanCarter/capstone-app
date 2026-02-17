@@ -8,10 +8,11 @@ const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcryptjs');
 const pool = require('./config/database');
 const passport = require('./config/passport');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '.env'), override: true });
 
 console.log("Server starting...")
 const PORT = process.env.PORT || 3001;
+const CLIENT_URL = 'http://localhost:5173';
 
 const app = express();
 
@@ -46,6 +47,10 @@ app.use(session({
 // Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
+
+app.get('/home', (req, res) => {
+  res.redirect('http://localhost:5173/home');
+});
 
 // Middleware to check authentication
 const isAuthenticated = (req, res, next) => {
@@ -133,10 +138,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   );
 
   app.get('/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: '/login?error=auth_failed' }),
+    passport.authenticate('google', { failureRedirect: 'http://localhost:5173/login?error=auth_failed' }),
     (req, res) => {
       // Successful authentication, redirect to home
-      res.redirect('/home');
+      res.redirect('http://localhost:5173/home');
     }
   );
 } else {

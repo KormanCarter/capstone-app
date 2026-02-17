@@ -54,10 +54,15 @@ passport.use(new LocalStrategy({
 
 // Google OAuth Strategy (only if credentials are provided)
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  const port = process.env.PORT || 3001;
+  const serverBaseUrl = (process.env.SERVER_URL || `http://localhost:${port}`).replace(/\/$/, '');
+  const googleCallbackUrl = process.env.GOOGLE_CALLBACK_URL || `${serverBaseUrl}/auth/google/callback`;
+
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "/auth/google/callback"
+    callbackURL: googleCallbackUrl,
+    proxy: true
   }, async (accessToken, refreshToken, profile, done) => {
     try {
       // Check if user already exists with this Google ID
