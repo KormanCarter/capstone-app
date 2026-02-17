@@ -104,7 +104,6 @@ export default function CoursesPage() {
                     </div>
                 )}
                 
-                {/* Popup Modal */}
                 <PopupComponent show={showPopup} onClose={closePopup}>
                     {selectedCourse && (
                         <div className="text-white">
