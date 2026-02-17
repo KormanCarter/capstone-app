@@ -98,8 +98,10 @@ export const AuthProvider = ({ children }) => {
   }
 
   const loginWithGoogle = () => {
-    const redirect = encodeURIComponent(window.location.origin)
-    window.location.href = `/auth/google?redirect=${redirect}`
+    const backendUrl = (import.meta.env.VITE_BACKEND_URL || (
+      window.location.hostname === 'localhost' ? 'http://localhost:3001' : window.location.origin
+    )).replace(/\/$/, '')
+    window.location.href = `${backendUrl}/auth/google`
   }
 
   const value = {
