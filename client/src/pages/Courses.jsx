@@ -3,14 +3,15 @@ import Header from '../../utilities/Header.jsx'
 import Footer from '../../utilities/Footer.jsx'
 import Navbar from '../components/Navbar';
 import SearchBar from '../components/SearchBar';
+import PopupComponent from '../components/PopUp.jsx';  
 
 export default function CoursesPage() {
+    const [showPopup, setShowPopup] = useState(false);
     const [courses, setCourses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Fetch courses based on search term
     const fetchCourses = async (query = '') => {
         setLoading(true);
         setError(null);
@@ -51,13 +52,16 @@ export default function CoursesPage() {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+    const openPopup = () => setShowPopup(true);
+    const closePopup = () => setShowPopup(false);
+
+
     return (
         <div className="min-h-screen bg-black">
             <Header />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <h1 className="text-4xl font-bold text-gray-50 mb-8">Available Courses</h1>
                 
-                {/* Search Bar */}
                 <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
                 
                 {loading && (
@@ -79,6 +83,14 @@ export default function CoursesPage() {
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {courses.map(class2 => (
                             <div key={class2.id} className="bg-slate-900 border border-slate-600 rounded-lg p-6 hover:border-emerald-600 transition duration-300">
+                                 <div>
+                                    <button onClick={openPopup}>Click to Open Popup</button>
+
+                                    <PopupComponent show={showPopup} onClose={closePopup}>
+                                    <h2>My Popup Content</h2>
+                                    <p>This is the content inside the popup.</p>
+                                    </PopupComponent>
+                                </div>    
                                 <h3 className="text-2xl font-bold text-gray-50 mb-3">{class2.name || class2.course_title}</h3>
                                 <p className="text-gray-400 mb-4">{class2.course_description}</p>
                                 <div className="flex justify-between items-center">
