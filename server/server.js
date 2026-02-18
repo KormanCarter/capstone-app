@@ -251,7 +251,7 @@ app.get("/api", (req, res) => {
 });
 
 // REMOVED AUTHENTICATION -Put bacck authentication when done
-app.get("/api/class2", async (req, res) => {
+app.get("/api/class2", isAuthenticated, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM class2 ORDER BY id');
     res.json(result.rows);
@@ -261,19 +261,16 @@ app.get("/api/class2", async (req, res) => {
   }
 });
 
-// Search endpoint for class2 table (public route - authentication removed)
-app.get("/api/search-classes", async (req, res) => {
+app.get("/api/search-classes", isAuthenticated, async (req, res) => {
   try {
     const { query } = req.query;
     console.log('Search request received, query:', query);
     
     let result;
     if (!query) {
-      // If no query, return all classes
       console.log('Fetching all classes...');
       result = await pool.query('SELECT * FROM class2 ORDER BY course_id');
     } else {
-      // Search for courses that match the query in course_id, course_title, or course_description
       console.log('Searching for courses matching:', query);
       result = await pool.query(
         `SELECT * FROM class2 
@@ -298,6 +295,26 @@ app.get("/api/search-classes", async (req, res) => {
     });
   }
 });
+
+app.put("/api/profile/update", isAuthenticated, async (req, res) => {
+  const { name, } = req.body
+
+  try {
+     result = await pool.query(
+      `UPDATE users SET name = $1 WHERE id = $2 RETURNING *`,
+      [name, req.user.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ message: 'Profile updated successfully', user: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ message: 'Failed to update profile' });
+  }
+})
 app.listen(PORT, () => {
   console.log(`Server listening on ${PORT}`);
 });

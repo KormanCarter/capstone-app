@@ -11,25 +11,17 @@ const ProfilePage = () => {
     const [profileData, setProfileData] = useState({
         name: '',
         email: '',
-        bio: '',
-        phone: '',
-        location: ''
     });
 
     useEffect(() => {
-        // Redirect to login if not authenticated
         if (!loading && !isAuthenticated) {
             navigate('/login');
         }
 
-        // Load user data when available
         if (user) {
             setProfileData({
                 name: user.name || '',
                 email: user.email || '',
-                bio: user.bio || '',
-                phone: user.phone || '',
-                location: user.location || ''
             });
         }
     }, [user, isAuthenticated, loading, navigate]);
@@ -67,14 +59,10 @@ const ProfilePage = () => {
     };
 
     const handleCancel = () => {
-        // Reset to user data
         if (user) {
             setProfileData({
                 name: user.name || '',
                 email: user.email || '',
-                bio: user.bio || '',
-                phone: user.phone || '',
-                location: user.location || ''
             });
         }
         setIsEditing(false);
@@ -171,69 +159,6 @@ const ProfilePage = () => {
                             <p className="text-gray-500 text-sm mt-1">
                                 Email cannot be changed
                             </p>
-                        </div>
-
-                        {/* Bio Field */}
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-400 mb-2">
-                                Bio
-                            </label>
-                            {isEditing ? (
-                                <textarea
-                                    name="bio"
-                                    value={profileData.bio}
-                                    onChange={handleInputChange}
-                                    rows="4"
-                                    className="w-full bg-slate-800 border border-slate-600 text-white px-4 py-3 rounded-lg focus:outline-none focus:border-emerald-500 transition"
-                                    placeholder="Tell us about yourself..."
-                                />
-                            ) : (
-                                <p className="text-white text-lg">
-                                    {profileData.bio || 'No bio provided'}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Phone Field */}
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-400 mb-2">
-                                Phone Number
-                            </label>
-                            {isEditing ? (
-                                <input
-                                    type="tel"
-                                    name="phone"
-                                    value={profileData.phone}
-                                    onChange={handleInputChange}
-                                    className="w-full bg-slate-800 border border-slate-600 text-white px-4 py-3 rounded-lg focus:outline-none focus:border-emerald-500 transition"
-                                    placeholder="Enter your phone number"
-                                />
-                            ) : (
-                                <p className="text-white text-lg">
-                                    {profileData.phone || 'Not provided'}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Location Field */}
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-400 mb-2">
-                                Location
-                            </label>
-                            {isEditing ? (
-                                <input
-                                    type="text"
-                                    name="location"
-                                    value={profileData.location}
-                                    onChange={handleInputChange}
-                                    className="w-full bg-slate-800 border border-slate-600 text-white px-4 py-3 rounded-lg focus:outline-none focus:border-emerald-500 transition"
-                                    placeholder="City, Country"
-                                />
-                            ) : (
-                                <p className="text-white text-lg">
-                                    {profileData.location || 'Not provided'}
-                                </p>
-                            )}
                         </div>
                     </div>
 
