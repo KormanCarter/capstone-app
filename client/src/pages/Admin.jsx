@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 
 export default function AdminPage() {
-  const { user, isAuthenticated, loading } = useAuth()
+  const { user, isAdmin, isAuthenticated, loading } = useAuth()
   const navigate = useNavigate()
   
   const [users, setUsers] = useState([])
@@ -19,14 +19,14 @@ export default function AdminPage() {
 
   // Check admin access
   useEffect(() => {
-    if (!loading && (!isAuthenticated || !user?.is_admin)) {
+    if (!loading && (!isAuthenticated || !isAdmin)) {
       navigate('/home')
     }
-  }, [isAuthenticated, user, loading, navigate])
+  }, [isAuthenticated, isAdmin, loading, navigate])
 
   // Fetch data
   useEffect(() => {
-    if (isAuthenticated && user?.is_admin) {
+    if (isAuthenticated && isAdmin) {
       // Always fetch all classes for user assignment
       fetchAllClasses()
       
@@ -36,7 +36,7 @@ export default function AdminPage() {
         fetchClasses()
       }
     }
-  }, [activeTab, isAuthenticated, user])
+  }, [activeTab, isAuthenticated, isAdmin])
 
   const fetchAllClasses = async () => {
     try {
@@ -188,7 +188,7 @@ export default function AdminPage() {
     )
   }
 
-  if (!isAuthenticated || !user?.is_admin) {
+  if (!isAuthenticated || !isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -269,32 +269,32 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {users.map((user) => (
-                        <tr key={user.id}>
+                      {users.map((listedUser) => (
+                        <tr key={listedUser.id}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-semibold">
-                                {user.name.charAt(0).toUpperCase()}
+                                {listedUser.name.charAt(0).toUpperCase()}
                               </div>
                               <div className="ml-3">
-                                <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                                <div className="text-sm font-medium text-gray-900">{listedUser.name}</div>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{listedUser.email}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              user.is_admin ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                              listedUser.is_admin ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
                             }`}>
-                              {user.is_admin ? 'Admin' : 'User'}
+                              {listedUser.is_admin ? 'Admin' : 'User'}
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {user.classes && user.classes.length > 0 ? (
+                            {listedUser.classes && listedUser.classes.length > 0 ? (
                               <div className="max-w-xs">
-                                <div className="text-xs text-gray-600 mb-1">{user.classes.length} classes:</div>
+                                <div className="text-xs text-gray-600 mb-1">{listedUser.classes.length} classes:</div>
                                 <div className="flex flex-wrap gap-1">
-                                  {user.classes.slice(0, 3).map((classId, idx) => {
+                                  {listedUser.classes.slice(0, 3).map((classId, idx) => {
                                     const classInfo = allClasses.find(c => c.course_id === classId)
                                     return (
                                       <span key={idx} className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
@@ -302,8 +302,8 @@ export default function AdminPage() {
                                       </span>
                                     )
                                   })}
-                                  {user.classes.length > 3 && (
-                                    <span className="text-xs text-gray-500">+{user.classes.length - 3} more</span>
+                                  {listedUser.classes.length > 3 && (
+                                    <span className="text-xs text-gray-500">+{listedUser.classes.length - 3} more</span>
                                   )}
                                 </div>
                               </div>
@@ -313,14 +313,14 @@ export default function AdminPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                             <button
-                              onClick={() => setEditingUser(user)}
+                              onClick={() => setEditingUser(listedUser)}
                               className="text-emerald-600 hover:text-emerald-900"
                             >
                               Edit
                             </button>
-                            {user.id !== user.id && (
+                            {listedUser.id !== user.id && (
                               <button
-                                onClick={() => handleDeleteUser(user.id)}
+                                onClick={() => handleDeleteUser(listedUser.id)}
                                 className="text-red-600 hover:text-red-900"
                               >
                                 Delete

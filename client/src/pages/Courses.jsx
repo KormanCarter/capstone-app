@@ -18,21 +18,44 @@ export default function CoursesPage() {
         setError(null);
         
         try {
-            const url = query 
-                ? `/api/search-classes?query=${encodeURIComponent(query)}`
-                : '/api/class2';
-            
-            const response = await fetch(url, { credentials: 'include' });
-            
-            if (!response.ok) {
+            if (query) {
+                const searchResponse = await fetch(`/api/search-classes?query=${encodeURIComponent(query)}`, {
+                    credentials: 'include'
+                });
+
+                if (!searchResponse.ok) {
+                    if (searchResponse.status === 401) {
+                        throw new Error('Please log in to view courses');
+                    }
+                    const errorData = await searchResponse.json().catch(() => ({}));
+                    throw new Error(errorData.message || errorData.error || `Failed to fetch courses (${searchResponse.status})`);
+                }
+
+                const searchData = await searchResponse.json();
+                setCourses(searchData);
+                return;
+            }
+
+            const classEndpoints = ['/api/classes', '/api/class2'];
+            let lastStatus = null;
+
+            for (const endpoint of classEndpoints) {
+                const response = await fetch(endpoint, { credentials: 'include' });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setCourses(data);
+                    return;
+                }
+
                 if (response.status === 401) {
                     throw new Error('Please log in to view courses');
                 }
-                throw new Error('Failed to fetch courses');
+
+                lastStatus = response.status;
             }
-            
-            const data = await response.json();
-            setCourses(data);
+
+            throw new Error(`Failed to fetch courses (${lastStatus || 'unknown error'})`);
         } catch (err) {
             console.error('Error:', err);
             setError(err.message);

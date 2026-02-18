@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Navbar() {
-  const { isAuthenticated, logout } = useAuth()
+  const { user, isAdmin, isAuthenticated, logout } = useAuth()
 
   const handleLogout = async () => {
     await logout()
@@ -32,10 +32,29 @@ export default function Navbar() {
                 About
               </Link>
             </li>
+            {isAdmin && (
+              <li>
+                <Link to="/admin" className="hover:text-emerald-200 transition duration-300 border-transparent border-1 rounded-md hover:border-emerald-200 p-1">
+                  Admin
+                </Link>
+              </li>
+            )}
           </ul>
           <div className="flex gap-3">
+            {isAuthenticated && (
+              <div className="hidden lg:flex items-center px-3 py-2 rounded-lg bg-white/10 text-xs font-mono text-emerald-200 border border-white/20">
+                admin:{String(isAdmin)} raw:{String(user?.is_admin ?? user?.isAdmin ?? 'null')}
+              </div>
+            )}
             {isAuthenticated ? (
               <>
+                {isAdmin && (
+                  <Link to="/admin">
+                    <button className="bg-white/20 backdrop-blur-sm px-5 py-2 rounded-lg font-semibold hover:bg-white/30 transition duration-300">
+                      Admin
+                    </button>
+                  </Link>
+                )}
                 <Link to="/profile">
                   <button className="bg-white/20 backdrop-blur-sm px-5 py-2 rounded-lg font-semibold hover:bg-white/30 transition duration-300">
                     Profile

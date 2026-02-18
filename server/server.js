@@ -60,6 +60,28 @@ const isAuthenticated = (req, res, next) => {
   res.status(401).json({ message: 'Not authenticated' });
 };
 
+const toBoolean = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value === 1;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return ['1', 'true', 't', 'yes', 'y', 'on'].includes(normalized);
+  }
+  return false;
+};
+
+const isAdmin = (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: 'Not authenticated' });
+  }
+
+  if (!toBoolean(req.user?.is_admin)) {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+
+  return next();
+};
+
 // Auth Routes
 // Local registration
 app.post('/auth/register', async (req, res) => {
@@ -78,7 +100,7 @@ app.post('/auth/register', async (req, res) => {
 
     // Create user
     const newUser = await pool.query(
-      'INSERT INTO users (email, password, name) VALUES ($1, $2, $3) RETURNING id, email, name',
+      'INSERT INTO users (email, password, name) VALUES ($1, $2, $3) RETURNING id, email, name, is_admin',
       [email, hashedPassword, name]
     );
 
@@ -93,7 +115,8 @@ app.post('/auth/register', async (req, res) => {
         user: { 
           id: newUser.rows[0].id, 
           email: newUser.rows[0].email, 
-          name: newUser.rows[0].name 
+          name: newUser.rows[0].name,
+          is_admin: toBoolean(newUser.rows[0].is_admin)
         } 
       });
     });
@@ -124,7 +147,8 @@ app.post('/auth/login', (req, res, next) => {
         user: { 
           id: user.id, 
           email: user.email, 
-          name: user.name 
+          name: user.name,
+          is_admin: toBoolean(user.is_admin)
         } 
       });
     });
@@ -174,7 +198,8 @@ app.get('/auth/user', (req, res) => {
       user: { 
         id: req.user.id, 
         email: req.user.email, 
-        name: req.user.name 
+        name: req.user.name,
+        is_admin: toBoolean(req.user.is_admin)
       } 
     });
   } else {
@@ -182,6 +207,308 @@ app.get('/auth/user', (req, res) => {
   }
 });
 
+app.get('/api/admin/users', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const tableInfo = await pool.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'"
+    );
+
+    const availableColumns = new Set(tableInfo.rows.map((row) => row.column_name));
+    const returningColumns = ['id', 'email', 'name', 'is_admin', 'classes', 'created_at']
+      .filter((columnName) => availableColumns.has(columnName));
+
+    if (returningColumns.length === 0) {
+      return res.json([]);
+    }
+
+    const users = await pool.query(
+      `SELECT ${returningColumns.join(', ')} FROM users ORDER BY id`
+    );
+
+    return res.json(users.rows);
+  } catch (error) {
+    console.error('Admin users fetch error:', error);
+    return res.status(500).json({ message: 'Failed to fetch users' });
+  }
+});
+
+app.put('/api/admin/users/:id', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const targetUserId = Number(req.params.id);
+    if (!Number.isInteger(targetUserId)) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+
+    const hasAdminFlag = Object.prototype.hasOwnProperty.call(req.body, 'is_admin');
+    if (targetUserId === req.user.id && hasAdminFlag && !toBoolean(req.body.is_admin)) {
+      return res.status(400).json({ message: 'You cannot remove your own admin access' });
+    }
+
+    const tableInfo = await pool.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'"
+    );
+    const availableColumns = new Set(tableInfo.rows.map((row) => row.column_name));
+
+    const updates = [];
+    const values = [];
+
+    const maybeAddUpdate = (columnName, valueTransform = (v) => v) => {
+      if (!availableColumns.has(columnName) || typeof req.body[columnName] === 'undefined') {
+        return;
+      }
+      values.push(valueTransform(req.body[columnName]));
+      updates.push(columnName + ' = $' + values.length);
+    };
+
+    maybeAddUpdate('name');
+    maybeAddUpdate('email');
+    maybeAddUpdate('is_admin', toBoolean);
+    maybeAddUpdate('classes', (classes) => Array.isArray(classes) ? classes : []);
+
+    if (updates.length === 0) {
+      return res.status(400).json({ message: 'No valid fields provided for update' });
+    }
+
+    values.push(targetUserId);
+
+    const returningColumns = ['id', 'email', 'name', 'is_admin', 'classes']
+      .filter((columnName) => availableColumns.has(columnName));
+    const returningClause = returningColumns.length > 0
+      ? ` RETURNING ${returningColumns.join(', ')}`
+      : '';
+
+    const result = await pool.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE id = $${values.length}${returningClause}`,
+      values
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.json({ message: 'User updated successfully', user: result.rows[0] || null });
+  } catch (error) {
+    console.error('Admin user update error:', error);
+    return res.status(500).json({ message: 'Failed to update user' });
+  }
+});
+
+app.delete('/api/admin/users/:id', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const targetUserId = Number(req.params.id);
+    if (!Number.isInteger(targetUserId)) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+
+    if (targetUserId === req.user.id) {
+      return res.status(400).json({ message: 'You cannot delete your own account from admin panel' });
+    }
+
+    const result = await pool.query('DELETE FROM users WHERE id = $1', [targetUserId]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Admin user delete error:', error);
+    return res.status(500).json({ message: 'Failed to delete user' });
+  }
+});
+
+app.get('/api/admin/classes', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const tableInfo = await pool.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'class2'"
+    );
+    const availableColumns = new Set(tableInfo.rows.map((row) => row.column_name));
+    const orderByColumn = availableColumns.has('course_id') ? 'course_id' : 'id';
+
+    const result = await pool.query(`SELECT * FROM class2 ORDER BY ${orderByColumn}`);
+    return res.json(result.rows);
+  } catch (error) {
+    console.error('Admin classes fetch error:', error);
+    return res.status(500).json({ message: 'Failed to fetch classes' });
+  }
+});
+
+app.post('/api/admin/classes', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const tableInfo = await pool.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'class2'"
+    );
+    const availableColumns = new Set(tableInfo.rows.map((row) => row.column_name));
+    const writableColumns = [
+      'course_id',
+      'course_title',
+      'course_description',
+      'classroom_number',
+      'capacity',
+      'credit_hours',
+      'tuition_cost'
+    ];
+
+    const columns = [];
+    const values = [];
+    const placeholders = [];
+
+    for (const columnName of writableColumns) {
+      if (!availableColumns.has(columnName) || typeof req.body[columnName] === 'undefined') {
+        continue;
+      }
+      columns.push(columnName);
+      values.push(req.body[columnName]);
+      placeholders.push(`$${values.length}`);
+    }
+
+    if (columns.length === 0) {
+      return res.status(400).json({ message: 'No class fields provided' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO class2 (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *`,
+      values
+    );
+
+    return res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Admin class create error:', error);
+    return res.status(500).json({ message: 'Failed to create class' });
+  }
+});
+
+app.put('/api/admin/classes/:id', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const classId = Number(req.params.id);
+    if (!Number.isInteger(classId)) {
+      return res.status(400).json({ message: 'Invalid class id' });
+    }
+
+    const tableInfo = await pool.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'class2'"
+    );
+    const availableColumns = new Set(tableInfo.rows.map((row) => row.column_name));
+    const writableColumns = [
+      'course_id',
+      'course_title',
+      'course_description',
+      'classroom_number',
+      'capacity',
+      'credit_hours',
+      'tuition_cost'
+    ];
+
+    const updates = [];
+    const values = [];
+
+    for (const columnName of writableColumns) {
+      if (!availableColumns.has(columnName) || typeof req.body[columnName] === 'undefined') {
+        continue;
+      }
+      values.push(req.body[columnName]);
+      updates.push(`${columnName} = $${values.length}`);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ message: 'No class fields provided for update' });
+    }
+
+    values.push(classId);
+
+    const result = await pool.query(
+      `UPDATE class2 SET ${updates.join(', ')} WHERE id = $${values.length} RETURNING *`,
+      values
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Class not found' });
+    }
+
+    return res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Admin class update error:', error);
+    return res.status(500).json({ message: 'Failed to update class' });
+  }
+});
+
+app.delete('/api/admin/classes/:id', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const classId = Number(req.params.id);
+    if (!Number.isInteger(classId)) {
+      return res.status(400).json({ message: 'Invalid class id' });
+    }
+
+    const result = await pool.query('DELETE FROM class2 WHERE id = $1', [classId]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Class not found' });
+    }
+
+    return res.json({ message: 'Class deleted successfully' });
+  } catch (error) {
+    console.error('Admin class delete error:', error);
+    return res.status(500).json({ message: 'Failed to delete class' });
+  }
+});
+
+
+app.put('/api/profile/update', isAuthenticated, async (req, res) => {
+  try {
+    const { name, bio, phone, location } = req.body;
+
+    const tableInfo = await pool.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'"
+    );
+
+    const availableColumns = new Set(tableInfo.rows.map((row) => row.column_name));
+    const updates = [];
+    const values = [];
+
+    const maybeAddUpdate = (columnName, value) => {
+      if (!availableColumns.has(columnName) || typeof value === 'undefined') {
+        return;
+      }
+      values.push(value);
+      updates.push(columnName + ' = $' + values.length);
+    };
+
+    maybeAddUpdate('name', name);
+    maybeAddUpdate('bio', bio);
+    maybeAddUpdate('phone', phone);
+    maybeAddUpdate('location', location);
+
+    if (updates.length === 0) {
+      return res.json({ message: 'No profile fields to update' });
+    }
+
+    values.push(req.user.id);
+
+    const hasUpdatedAt = availableColumns.has('updated_at');
+    const setClause = hasUpdatedAt
+      ? updates.join(', ') + ', updated_at = CURRENT_TIMESTAMP'
+      : updates.join(', ');
+
+    const returningColumns = ['id', 'email', 'name', 'is_admin', 'bio', 'phone', 'location']
+      .filter((columnName) => availableColumns.has(columnName));
+
+    const returningClause = returningColumns.length > 0
+      ? ' RETURNING ' + returningColumns.join(', ')
+      : '';
+
+    const result = await pool.query(
+      'UPDATE users SET ' + setClause + ' WHERE id = $' + values.length + returningClause,
+      values
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.json({ message: 'Profile updated successfully', user: result.rows[0] || null });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    return res.status(500).json({ message: 'Failed to update profile' });
+  }
+});
 // Test database connection
 app.get("/api/test", async (req, res) => {
   try {

@@ -13,6 +13,36 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  const toBoolean = (value) => {
+    if (typeof value === 'boolean') return value
+    if (typeof value === 'number') return value === 1
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase()
+      return normalized === '1' || normalized === 'true' || normalized === 't' || normalized === 'yes' || normalized === 'y' || normalized === 'on'
+    }
+    return false
+  }
+
+  const normalizeUser = (rawUser) => {
+    if (!rawUser) return null
+    const isAdminValue = rawUser.is_admin ?? rawUser.isAdmin
+    const isAdmin = toBoolean(isAdminValue)
+    return {
+      ...rawUser,
+      is_admin: isAdmin
+    }
+  }
+
+  const checkAdminAccess = async () => {
+    try {
+      const response = await fetch('/api/admin/users', { credentials: 'include' })
+      return response.ok
+    } catch {
+      return false
+    }
+  }
 
   // Check if user is authenticated on app load
   useEffect(() => {
@@ -26,10 +56,18 @@ export const AuthProvider = ({ children }) => {
       })
       if (response.ok) {
         const data = await response.json()
-        setUser(data.user)
+        const normalized = normalizeUser(data.user)
+        setUser(normalized)
+        const adminByProbe = await checkAdminAccess()
+        setIsAdmin(normalized?.is_admin || adminByProbe)
+      } else {
+        setUser(null)
+        setIsAdmin(false)
       }
     } catch (error) {
       console.error('Auth check failed:', error)
+      setUser(null)
+      setIsAdmin(false)
     } finally {
       setLoading(false)
     }
@@ -49,7 +87,10 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json()
 
       if (response.ok) {
-        setUser(data.user)
+        const normalized = normalizeUser(data.user)
+        setUser(normalized)
+        const adminByProbe = await checkAdminAccess()
+        setIsAdmin(normalized?.is_admin || adminByProbe)
         return { success: true }
       } else {
         return { success: false, error: data.message }
@@ -74,7 +115,10 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json()
 
       if (response.ok) {
-        setUser(data.user)
+        const normalized = normalizeUser(data.user)
+        setUser(normalized)
+        const adminByProbe = await checkAdminAccess()
+        setIsAdmin(normalized?.is_admin || adminByProbe)
         return { success: true }
       } else {
         return { success: false, error: data.message }
@@ -92,6 +136,7 @@ export const AuthProvider = ({ children }) => {
         credentials: 'include'
       })
       setUser(null)
+      setIsAdmin(false)
     } catch (error) {
       console.error('Logout error:', error)
     }
@@ -111,6 +156,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     loginWithGoogle,
+    isAdmin,
     isAuthenticated: !!user
   }
 

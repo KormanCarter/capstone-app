@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Header from '../../utilities/Header.jsx';
 import Footer from '../../utilities/Footer.jsx';
 import { useAuth } from '../contexts/AuthContext';
 
 const ProfilePage = () => {
-    const { user, isAuthenticated, loading } = useAuth();
+    const { user, isAdmin, isAuthenticated, loading } = useAuth();
     const navigate = useNavigate();
     const [isEditing, setIsEditing] = useState(false);
     const [profileData, setProfileData] = useState({
@@ -93,6 +93,11 @@ const ProfilePage = () => {
                             <p className="text-emerald-100">
                                 {profileData.email}
                             </p>
+                            {isAdmin && (
+                                <p className="mt-2 inline-block bg-white/20 text-white text-sm px-3 py-1 rounded-full font-semibold">
+                                    Admin Account
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -183,7 +188,21 @@ const ProfilePage = () => {
                                     }
                                 </p>
                             </div>
+                            <div>
+                                <p className="text-sm text-gray-400">Role</p>
+                                <p className="text-white">{isAdmin ? 'Admin' : 'User'}</p>
+                            </div>
                         </div>
+                        {isAdmin && (
+                            <div className="mt-6">
+                                <Link
+                                    to="/admin"
+                                    className="inline-block bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-emerald-500 transition duration-300"
+                                >
+                                    Go to Admin Dashboard
+                                </Link>
+                            </div>
+                        )}
                     </div>
                 </div>
 

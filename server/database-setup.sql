@@ -4,10 +4,14 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255), -- for local authentication, null for OAuth only users
     name VARCHAR(255) NOT NULL,
+    is_admin BOOLEAN DEFAULT FALSE,
     google_id VARCHAR(255), -- for Google OAuth
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Ensure admin column exists for older databases created before this column was added
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;
 
 -- Create session table for express-session with connect-pg-simple
 CREATE TABLE IF NOT EXISTS session (
