@@ -20,7 +20,7 @@ export default function CoursesPage() {
         try {
             const url = query 
                 ? `/api/search-classes?query=${encodeURIComponent(query)}`
-                : '/api/classes';
+                : '/api/class2';
             
             const response = await fetch(url, { credentials: 'include' });
             
