@@ -44,7 +44,7 @@ export default function Dashboard() {
       <section className="bg-gradient-to-r from-emerald-600 to-emerald-800 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-4xl md:text-5xl font-bold mb-3">
-            Welcome back, {user?.name || 'Student'}! 👋
+            Welcome back, {user?.name || 'Student'}! 
           </h1>
           <p className="text-emerald-100 text-lg">
             Continue your learning journey
@@ -63,7 +63,6 @@ export default function Dashboard() {
                   <p className="text-gray-400 text-sm uppercase tracking-wide mb-2">Total Courses</p>
                   <p className="text-4xl font-bold text-white">{stats.totalCourses}</p>
                 </div>
-                <div className="text-5xl">📚</div>
               </div>
             </div>
 
@@ -74,7 +73,6 @@ export default function Dashboard() {
                   <p className="text-gray-400 text-sm uppercase tracking-wide mb-2">Enrolled</p>
                   <p className="text-4xl font-bold text-emerald-400">{stats.enrolledCourses}</p>
                 </div>
-                <div className="text-5xl">✓</div>
               </div>
             </div>
 
@@ -85,7 +83,6 @@ export default function Dashboard() {
                   <p className="text-gray-400 text-sm uppercase tracking-wide mb-2">Completed</p>
                   <p className="text-4xl font-bold text-emerald-400">{stats.completedCourses}</p>
                 </div>
-                <div className="text-5xl">🎓</div>
               </div>
             </div>
           </div>
