@@ -9,9 +9,31 @@ export default function CoursesPage() {
     const [showPopup, setShowPopup] = useState(false);
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [courses, setCourses] = useState([]);
+    const [enrolledCourseIds, setEnrolledCourseIds] = useState([]);
+    const [enrollmentBusy, setEnrollmentBusy] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+
+    const getCourseId = (course) => {
+        if (!course) return '';
+        if (course.course_id) return String(course.course_id);
+        if (course.id) return String(course.id);
+        return '';
+    };
+
+    const fetchEnrolledClasses = async () => {
+        try {
+            const response = await fetch('/api/profile/classes', { credentials: 'include' });
+            if (!response.ok) {
+                return;
+            }
+            const data = await response.json();
+            setEnrolledCourseIds(data.map((course) => getCourseId(course)).filter(Boolean));
+        } catch (fetchError) {
+            console.error('Error fetching enrolled classes:', fetchError);
+        }
+    };
 
     const fetchCourses = async (query = '') => {
         setLoading(true);
@@ -66,6 +88,7 @@ export default function CoursesPage() {
 
     useEffect(() => {
         fetchCourses();
+        fetchEnrolledClasses();
     }, []);
 
     useEffect(() => {
@@ -84,6 +107,53 @@ export default function CoursesPage() {
     const closePopup = () => {
         setShowPopup(false);
         setSelectedCourse(null);
+    };
+
+    const handleEnrollmentToggle = async () => {
+        if (!selectedCourse) return;
+
+        const courseId = getCourseId(selectedCourse);
+        if (!courseId) {
+            setError('Unable to determine class id.');
+            return;
+        }
+
+        const isEnrolled = enrolledCourseIds.includes(courseId);
+
+        try {
+            setEnrollmentBusy(true);
+            const response = await fetch(`/api/classes/${encodeURIComponent(courseId)}/enrollment`, {
+                method: isEnrolled ? 'DELETE' : 'POST',
+                credentials: 'include'
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    setError('Please log in to manage enrollment');
+                    return;
+                }
+                setError(data.message || data.error || 'Failed to update enrollment');
+                return;
+            }
+
+            setError(null);
+            setEnrolledCourseIds((previous) => {
+                if (isEnrolled) {
+                    return previous.filter((id) => id !== courseId);
+                }
+                if (previous.includes(courseId)) {
+                    return previous;
+                }
+                return [...previous, courseId];
+            });
+        } catch (toggleError) {
+            console.error('Enrollment toggle error:', toggleError);
+            setError('Failed to update enrollment');
+        } finally {
+            setEnrollmentBusy(false);
+        }
     };
 
 
@@ -169,8 +239,20 @@ export default function CoursesPage() {
                                 )}
                                 
                                 <div className="pt-6 flex gap-4">
-                                    <button className="flex-1 bg-emerald-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-emerald-500 transition duration-300">
-                                        Enroll Now
+                                    <button
+                                        onClick={handleEnrollmentToggle}
+                                        disabled={enrollmentBusy}
+                                        className={`flex-1 text-white px-6 py-3 rounded-lg font-semibold transition duration-300 ${
+                                            enrolledCourseIds.includes(getCourseId(selectedCourse))
+                                                ? 'bg-red-600 hover:bg-red-500'
+                                                : 'bg-emerald-600 hover:bg-emerald-500'
+                                        } ${enrollmentBusy ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                    >
+                                        {enrollmentBusy
+                                            ? 'Saving...'
+                                            : enrolledCourseIds.includes(getCourseId(selectedCourse))
+                                                ? 'Unenroll'
+                                                : 'Enroll Now'}
                                     </button>
                                     <button 
                                         onClick={closePopup}

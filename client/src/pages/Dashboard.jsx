@@ -10,7 +10,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     totalCourses: 0,
     enrolledCourses: 0,
-    completedCourses: 0
+    availableCourses: 0
   });
   const [loadingCourses, setLoadingCourses] = useState(true);
 
@@ -22,13 +22,26 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoadingCourses(true);
-      // Fetch recent courses
-      const coursesResponse = await fetch('/api/class2', { credentials: 'include' });
-      if (coursesResponse.ok) {
-        const coursesData = await coursesResponse.json();
-        setCourses(coursesData.slice(0, 6)); // Show only first 6 courses
-        setStats(prev => ({ ...prev, totalCourses: coursesData.length }));
+      const classEndpoints = ['/api/classes', '/api/class2'];
+      let coursesData = [];
+
+      for (const endpoint of classEndpoints) {
+        const response = await fetch(endpoint, { credentials: 'include' });
+        if (response.ok) {
+          coursesData = await response.json();
+          break;
+        }
       }
+
+      const enrolledResponse = await fetch('/api/profile/classes', { credentials: 'include' });
+      const enrolledData = enrolledResponse.ok ? await enrolledResponse.json() : [];
+
+      const totalCourses = Array.isArray(coursesData) ? coursesData.length : 0;
+      const enrolledCourses = Array.isArray(enrolledData) ? enrolledData.length : 0;
+      const availableCourses = Math.max(totalCourses - enrolledCourses, 0);
+
+      setCourses(Array.isArray(coursesData) ? coursesData.slice(0, 6) : []);
+      setStats({ totalCourses, enrolledCourses, availableCourses });
       setLoadingCourses(false);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -76,12 +89,12 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Completed Courses */}
+            {/* Available Courses */}
             <div className="bg-slate-900 border border-slate-600 rounded-xl p-6 hover:border-emerald-600 transition duration-300">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm uppercase tracking-wide mb-2">Completed</p>
-                  <p className="text-4xl font-bold text-emerald-400">{stats.completedCourses}</p>
+                  <p className="text-gray-400 text-sm uppercase tracking-wide mb-2">Available</p>
+                  <p className="text-4xl font-bold text-emerald-400">{stats.availableCourses}</p>
                 </div>
               </div>
             </div>

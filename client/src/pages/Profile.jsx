@@ -8,10 +8,27 @@ const ProfilePage = () => {
     const { user, isAdmin, isAuthenticated, loading } = useAuth();
     const navigate = useNavigate();
     const [isEditing, setIsEditing] = useState(false);
+    const [enrolledClasses, setEnrolledClasses] = useState([]);
+    const [classesLoading, setClassesLoading] = useState(false);
     const [profileData, setProfileData] = useState({
         name: '',
         email: '',
     });
+
+    const fetchEnrolledClasses = async () => {
+        try {
+            setClassesLoading(true);
+            const response = await fetch('/api/profile/classes', { credentials: 'include' });
+            if (response.ok) {
+                const data = await response.json();
+                setEnrolledClasses(Array.isArray(data) ? data : []);
+            }
+        } catch (error) {
+            console.error('Error fetching enrolled classes:', error);
+        } finally {
+            setClassesLoading(false);
+        }
+    };
 
     useEffect(() => {
         if (!loading && !isAuthenticated) {
@@ -23,6 +40,7 @@ const ProfilePage = () => {
                 name: user.name || '',
                 email: user.email || '',
             });
+            fetchEnrolledClasses();
         }
     }, [user, isAuthenticated, loading, navigate]);
 
@@ -209,14 +227,27 @@ const ProfilePage = () => {
                 {/* Enrolled Courses Section */}
                 <div className="mt-8 bg-slate-900 border border-slate-600 rounded-2xl p-8">
                     <h2 className="text-2xl font-bold text-white mb-6">My Enrolled Courses</h2>
-                    <div className="grid md:grid-cols-2 gap-4">
-                        {/* Placeholder for enrolled courses - you can connect this to your backend later */}
-                        <div className="bg-slate-800 border border-slate-700 rounded-lg p-4 hover:border-emerald-600 transition">
-                            <p className="text-gray-400 text-center py-8">
-                                No courses enrolled yet.
-                            </p>
+                    {classesLoading ? (
+                        <p className="text-gray-400">Loading enrolled courses...</p>
+                    ) : enrolledClasses.length === 0 ? (
+                        <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                            <p className="text-gray-400 text-center py-8">No courses enrolled yet.</p>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="grid md:grid-cols-2 gap-4">
+                            {enrolledClasses.map((enrolledClass) => (
+                                <div key={enrolledClass.id || enrolledClass.course_id} className="bg-slate-800 border border-slate-700 rounded-lg p-4 hover:border-emerald-600 transition">
+                                    <h3 className="text-lg font-semibold text-white mb-1">
+                                        {enrolledClass.course_title || enrolledClass.name || 'Untitled Course'}
+                                    </h3>
+                                    <p className="text-sm text-emerald-300 mb-2">{enrolledClass.course_id || enrolledClass.id}</p>
+                                    {enrolledClass.course_description && (
+                                        <p className="text-gray-400 text-sm line-clamp-3">{enrolledClass.course_description}</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
             <Footer />
