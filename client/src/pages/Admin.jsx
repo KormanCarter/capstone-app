@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
 import { useNavigate } from 'react-router-dom'
-import Navbar from '../components/Navbar'
+import Header from '../../utilities/Header'
+import Footer from '../../utilities/Footer'
 
 export default function AdminPage() {
   const { user, isAdmin, isAuthenticated, loading } = useAuth()
+  const { darkMode } = useTheme()
   const navigate = useNavigate()
   
   const [users, setUsers] = useState([])
@@ -179,10 +182,10 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-black' : 'bg-white'}`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-emerald-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className={`mt-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading...</p>
         </div>
       </div>
     )
@@ -190,45 +193,45 @@ export default function AdminPage() {
 
   if (!isAuthenticated || !isAdmin) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center ${darkMode ? 'bg-black' : 'bg-white'}`}>
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Access Denied</h2>
-          <p className="text-gray-600">You need admin privileges to access this page.</p>
+          <h2 className={`text-2xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Access Denied</h2>
+          <p className={darkMode ? 'text-gray-400' : 'text-gray-600'}>You need admin privileges to access this page.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navbar />
+    <div className={`min-h-screen ${darkMode ? 'bg-black' : 'bg-white'}`}>
+      <Header />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-4xl font-bold text-gray-800 mb-8">Admin Dashboard</h1>
+        <h1 className={`text-4xl font-bold mb-8 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Admin Dashboard</h1>
         
         {/* Status Messages */}
         {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-300 rounded-lg text-red-700">
+          <div className={`mb-4 p-4 border rounded-lg ${darkMode ? 'bg-red-950 border-red-600 text-red-200' : 'bg-red-50 border-red-300 text-red-700'}`}>
             {error}
-            <button onClick={() => setError('')} className="ml-2 text-red-500 hover:text-red-700">×</button>
+            <button onClick={() => setError('')} className={`ml-2 ${darkMode ? 'text-red-400 hover:text-red-200' : 'text-red-500 hover:text-red-700'}`}>×</button>
           </div>
         )}
         {success && (
-          <div className="mb-4 p-4 bg-green-50 border border-green-300 rounded-lg text-green-700">
+          <div className={`mb-4 p-4 border rounded-lg ${darkMode ? 'bg-green-950 border-green-600 text-green-200' : 'bg-green-50 border-green-300 text-green-700'}`}>
             {success}
-            <button onClick={() => setSuccess('')} className="ml-2 text-green-500 hover:text-green-700">×</button>
+            <button onClick={() => setSuccess('')} className={`ml-2 ${darkMode ? 'text-green-400 hover:text-green-200' : 'text-green-500 hover:text-green-700'}`}>×</button>
           </div>
         )}
 
         {/* Tab Navigation */}
         <div className="mb-8">
-          <div className="flex space-x-4 border-b">
+          <div className={`flex space-x-4 border-b ${darkMode ? 'border-slate-600' : 'border-gray-300'}`}>
             <button
               onClick={() => setActiveTab('users')}
               className={`py-2 px-4 font-semibold ${
                 activeTab === 'users'
                   ? 'border-b-2 border-emerald-600 text-emerald-600'
-                  : 'text-gray-500 hover:text-gray-700'
+                  : darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               Manage Users
@@ -238,7 +241,7 @@ export default function AdminPage() {
               className={`py-2 px-4 font-semibold ${
                 activeTab === 'classes'
                   ? 'border-b-2 border-emerald-600 text-emerald-600'
-                  : 'text-gray-500 hover:text-gray-700'
+                  : darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               Manage Classes
@@ -249,26 +252,26 @@ export default function AdminPage() {
         {/* Users Tab */}
         {activeTab === 'users' && (
           <div>
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-800">Users</h2>
+            <div className={`rounded-lg shadow-md overflow-hidden border ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-white border-gray-200'}`}>
+              <div className={`px-6 py-4 border-b ${darkMode ? 'border-slate-600' : 'border-gray-200'}`}>
+                <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Users</h2>
               </div>
               
               {isLoading ? (
-                <div className="p-6 text-center">Loading users...</div>
+                <div className={`p-6 text-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading users...</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className={darkMode ? 'bg-slate-800' : 'bg-gray-50'}>
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Classes</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>User</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Email</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Admin</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Classes</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className={`divide-y ${darkMode ? 'bg-slate-900 divide-slate-700' : 'bg-white divide-gray-200'}`}>
                       {users.map((listedUser) => (
                         <tr key={listedUser.id}>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -277,22 +280,22 @@ export default function AdminPage() {
                                 {listedUser.name.charAt(0).toUpperCase()}
                               </div>
                               <div className="ml-3">
-                                <div className="text-sm font-medium text-gray-900">{listedUser.name}</div>
+                                <div className={`text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{listedUser.name}</div>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{listedUser.email}</td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-gray-300' : 'text-gray-900'}`}>{listedUser.email}</td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              listedUser.is_admin ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                              listedUser.is_admin ? 'bg-red-100 text-red-800' : darkMode ? 'bg-slate-700 text-gray-300' : 'bg-gray-100 text-gray-800'
                             }`}>
                               {listedUser.is_admin ? 'Admin' : 'User'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                             {listedUser.classes && listedUser.classes.length > 0 ? (
                               <div className="max-w-xs">
-                                <div className="text-xs text-gray-600 mb-1">{listedUser.classes.length} classes:</div>
+                                <div className={`text-xs mb-1 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>{listedUser.classes.length} classes:</div>
                                 <div className="flex flex-wrap gap-1">
                                   {listedUser.classes.slice(0, 3).map((classId, idx) => {
                                     const classInfo = allClasses.find(c => c.course_id === classId)
@@ -303,25 +306,25 @@ export default function AdminPage() {
                                     )
                                   })}
                                   {listedUser.classes.length > 3 && (
-                                    <span className="text-xs text-gray-500">+{listedUser.classes.length - 3} more</span>
+                                    <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>+{listedUser.classes.length - 3} more</span>
                                   )}
                                 </div>
                               </div>
                             ) : (
-                              <span className="text-gray-400">No classes</span>
+                              <span className={darkMode ? 'text-gray-500' : 'text-gray-400'}>No classes</span>
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                             <button
                               onClick={() => setEditingUser(listedUser)}
-                              className="text-emerald-600 hover:text-emerald-900"
+                              className="text-emerald-600 hover:text-emerald-500"
                             >
                               Edit
                             </button>
                             {listedUser.id !== user.id && (
                               <button
                                 onClick={() => handleDeleteUser(listedUser.id)}
-                                className="text-red-600 hover:text-red-900"
+                                className="text-red-600 hover:text-red-500"
                               >
                                 Delete
                               </button>
@@ -346,52 +349,52 @@ export default function AdminPage() {
                   course_id: '', course_title: '', course_description: '', 
                   classroom_number: '', capacity: 30, credit_hours: 3, tuition_cost: 900 
                 })}
-                className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700"
+                className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-500 transition duration-300"
               >
                 Add New Class
               </button>
             </div>
             
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-800">Classes</h2>
+            <div className={`rounded-lg shadow-md overflow-hidden border ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-white border-gray-200'}`}>
+              <div className={`px-6 py-4 border-b ${darkMode ? 'border-slate-600' : 'border-gray-200'}`}>
+                <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Classes</h2>
               </div>
               
               {isLoading ? (
-                <div className="p-6 text-center">Loading classes...</div>
+                <div className={`p-6 text-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading classes...</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className={darkMode ? 'bg-slate-800' : 'bg-gray-50'}>
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Course ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Classroom</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credits</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Course ID</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Title</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Classroom</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Capacity</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Credits</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Cost</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className={`divide-y ${darkMode ? 'bg-slate-900 divide-slate-700' : 'bg-white divide-gray-200'}`}>
                       {classes.map((cls) => (
                         <tr key={cls.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{cls.course_id}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{cls.course_title}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{cls.classroom_number}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{cls.capacity}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{cls.credit_hours}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${cls.tuition_cost}</td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${darkMode ? 'text-white' : 'text-gray-900'}`}>{cls.course_id}</td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-gray-300' : 'text-gray-900'}`}>{cls.course_title}</td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{cls.classroom_number}</td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{cls.capacity}</td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{cls.credit_hours}</td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>${cls.tuition_cost}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                             <button
                               onClick={() => setEditingClass(cls)}
-                              className="text-emerald-600 hover:text-emerald-900"
+                              className="text-emerald-600 hover:text-emerald-500"
                             >
                               Edit
                             </button>
                             <button
                               onClick={() => handleDeleteClass(cls.id)}
-                              className="text-red-600 hover:text-red-900"
+                              className="text-red-600 hover:text-red-500"
                             >
                               Delete
                             </button>
@@ -425,6 +428,7 @@ export default function AdminPage() {
           />
         )}
       </div>
+      <Footer />
     </div>
   )
 }

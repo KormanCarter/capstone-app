@@ -1,6 +1,11 @@
+import { useTheme } from '../src/contexts/ThemeContext'
+import ThemeToggle from '../src/components/ThemeToggle'
+
 function Footer() {
+    const { darkMode } = useTheme()
+
     return (
-        <footer className="text-white py-12 bg-black">
+        <footer className={`${darkMode ? 'bg-black text-white' : 'bg-white text-black'} py-12`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
