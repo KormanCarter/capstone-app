@@ -338,7 +338,7 @@ export default function CoursesPage() {
         <div className={`min-h-screen ${darkMode ? 'bg-black' : 'bg-white'}`}>
             <Header />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <h1 className={`text-4xl font-bold mb-8 ${darkMode ? 'text-gray-50' : 'text-gray-800'}`}>My Courses</h1>
+                <h1 className={`text-4xl font-bold mb-8 ${darkMode ? 'text-gray-50' : 'text-gray-800'}`}>Courses</h1>
                 
                 <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
                 
@@ -439,7 +439,7 @@ export default function CoursesPage() {
                                                 ? 'bg-emerald-700'
                                                 : selectedCompletionStatus === 'pending'
                                                     ? 'bg-amber-600'
-                                                    : 'bg-blue-600 hover:bg-blue-500'
+                                                    : 'bg-emerald-600 hover:bg-emerald-500'
                                         } ${(completionBusy || !isSelectedEnrolled || selectedCompletionStatus === 'pending' || selectedCompletionStatus === 'approved') ? 'opacity-70 cursor-not-allowed' : ''}`}
                                     >
                                         {completionBusy

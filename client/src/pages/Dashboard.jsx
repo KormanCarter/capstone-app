@@ -264,7 +264,7 @@ export default function Dashboard() {
                             ? 'bg-emerald-700'
                             : completionStatusByCourse[getCourseId(course)] === 'pending'
                               ? 'bg-amber-600'
-                              : 'bg-blue-600 hover:bg-blue-500'
+                              : 'bg-emerald-600 hover:bg-emerald-400 cursor-pointer'
                         } ${(completionBusyCourseId === getCourseId(course) || completionStatusByCourse[getCourseId(course)] === 'pending' || completionStatusByCourse[getCourseId(course)] === 'approved') ? 'opacity-70 cursor-not-allowed' : ''}`}
                       >
                         {completionBusyCourseId === getCourseId(course)
@@ -279,7 +279,7 @@ export default function Dashboard() {
                         to="/courses"
                         className={`px-4 py-2 rounded-lg font-semibold transition duration-300 ${darkMode ? 'bg-slate-800 text-gray-200 hover:bg-slate-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
                       >
-                        Open
+                        Discover
                       </Link>
                     </div>
                   </div>
