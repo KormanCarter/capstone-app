@@ -2,13 +2,13 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
-import './App.css'
 import App from './App.jsx'
 import CoursesPage from './pages/Courses.jsx'
 import AboutPage from './pages/About.jsx'
 import SignUp from './pages/SignUp.jsx'
 import Login from './pages/Login.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
+import { ThemeProvider } from './contexts/ThemeContext.jsx'
 import ProfilePage from './pages/Profile.jsx'
 import AdminPage from './pages/Admin.jsx'
 
@@ -28,7 +28,7 @@ function RequireAdmin({ children }) {
 
 createRoot(document.getElementById('root')).render(
 
-  <StrictMode>
+  <ThemeProvider>
     <AuthProvider>
       <BrowserRouter>
         <Routes>
@@ -43,5 +43,5 @@ createRoot(document.getElementById('root')).render(
         </Routes>
       </BrowserRouter>
     </AuthProvider>
-  </StrictMode>,
+  </ThemeProvider>,
 )

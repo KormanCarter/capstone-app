@@ -37,7 +37,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen">
       <Header />
       
       {/* Welcome Section */}

@@ -47,7 +47,6 @@ const ProfilePage = () => {
 
             if (response.ok) {
                 setIsEditing(false);
-                // You could show a success message here
                 alert('Profile updated successfully!');
             } else {
                 alert('Failed to update profile');
