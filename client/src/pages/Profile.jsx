@@ -228,8 +228,9 @@ const ProfilePage = () => {
                 {/* Enrolled Courses Section */}
                 <div className={`mt-8 border rounded-2xl p-8 ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-100 border-slate-300'}`}>
                     <h2 className={`text-2xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-gray-800'}`}>My Enrolled Courses</h2>
-                    <div className="grid md:grid-cols-2 gap-4">
-                        {/* Placeholder for enrolled courses - you can connect this to your backend later */}
+                    {classesLoading ? (
+                        <p className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading courses...</p>
+                    ) : enrolledClasses.length === 0 ? (
                         <div className={`border rounded-lg p-4 transition ${darkMode ? 'bg-slate-800 border-slate-700 hover:border-emerald-600' : 'bg-white border-slate-300 hover:border-emerald-500'}`}>
                             <p className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                 No courses enrolled yet.
@@ -238,13 +239,13 @@ const ProfilePage = () => {
                     ) : (
                         <div className="grid md:grid-cols-2 gap-4">
                             {enrolledClasses.map((enrolledClass) => (
-                                <div key={enrolledClass.id || enrolledClass.course_id} className="bg-slate-800 border border-slate-700 rounded-lg p-4 hover:border-emerald-600 transition">
-                                    <h3 className="text-lg font-semibold text-white mb-1">
+                                <div key={enrolledClass.id || enrolledClass.course_id} className={`border rounded-lg p-4 transition ${darkMode ? 'bg-slate-800 border-slate-700 hover:border-emerald-600' : 'bg-white border-slate-300 hover:border-emerald-500'}`}>
+                                    <h3 className={`text-lg font-semibold mb-1 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                                         {enrolledClass.course_title || enrolledClass.name || 'Untitled Course'}
                                     </h3>
-                                    <p className="text-sm text-emerald-300 mb-2">{enrolledClass.course_id || enrolledClass.id}</p>
+                                    <p className={`text-sm mb-2 ${darkMode ? 'text-emerald-300' : 'text-emerald-600'}`}>{enrolledClass.course_id || enrolledClass.id}</p>
                                     {enrolledClass.course_description && (
-                                        <p className="text-gray-400 text-sm line-clamp-3">{enrolledClass.course_description}</p>
+                                        <p className={`text-sm line-clamp-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{enrolledClass.course_description}</p>
                                     )}
                                 </div>
                             ))}

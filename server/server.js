@@ -104,20 +104,28 @@ app.post('/auth/register', async (req, res) => {
       [email, hashedPassword, name]
     );
 
-    // Log in the user
-    req.login(newUser.rows[0], (err) => {
+    // Destroy any existing session before creating a new one
+    req.session.regenerate((err) => {
       if (err) {
-        console.error('Login error:', err);
-        return res.status(500).json({ message: 'Error logging in after registration' });
+        console.error('Session regeneration error:', err);
+        return res.status(500).json({ message: 'Error creating session' });
       }
-      res.json({ 
-        message: 'Registration successful', 
-        user: { 
-          id: newUser.rows[0].id, 
-          email: newUser.rows[0].email, 
-          name: newUser.rows[0].name,
-          is_admin: toBoolean(newUser.rows[0].is_admin)
-        } 
+      
+      // Log in the new user
+      req.login(newUser.rows[0], (err) => {
+        if (err) {
+          console.error('Login error:', err);
+          return res.status(500).json({ message: 'Error logging in after registration' });
+        }
+        res.json({ 
+          message: 'Registration successful', 
+          user: { 
+            id: newUser.rows[0].id, 
+            email: newUser.rows[0].email, 
+            name: newUser.rows[0].name,
+            is_admin: toBoolean(newUser.rows[0].is_admin)
+          } 
+        });
       });
     });
   } catch (error) {
@@ -137,19 +145,27 @@ app.post('/auth/login', (req, res, next) => {
       return res.status(400).json({ message: info.message || 'Invalid credentials' });
     }
     
-    req.login(user, (err) => {
+    // Regenerate session to prevent session fixation attacks
+    req.session.regenerate((err) => {
       if (err) {
-        console.error('Session login error:', err);
+        console.error('Session regeneration error:', err);
         return res.status(500).json({ message: 'Error creating session' });
       }
-      res.json({ 
-        message: 'Login successful', 
-        user: { 
-          id: user.id, 
-          email: user.email, 
-          name: user.name,
-          is_admin: toBoolean(user.is_admin)
-        } 
+      
+      req.login(user, (err) => {
+        if (err) {
+          console.error('Session login error:', err);
+          return res.status(500).json({ message: 'Error creating session' });
+        }
+        res.json({ 
+          message: 'Login successful', 
+          user: { 
+            id: user.id, 
+            email: user.email, 
+            name: user.name,
+            is_admin: toBoolean(user.is_admin)
+          } 
+        });
       });
     });
   })(req, res, next);
