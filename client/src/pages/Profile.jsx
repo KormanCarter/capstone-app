@@ -24,6 +24,26 @@ const ProfilePage = () => {
             if (response.ok) {
                 const data = await response.json();
                 setEnrolledClasses(Array.isArray(data) ? data : []);
+                return;
+            }
+
+            if (user?.id) {
+                const adminResponse = await fetch('/api/admin/users', { credentials: 'include' });
+                if (adminResponse.ok) {
+                    const users = await adminResponse.json();
+                    const currentUser = Array.isArray(users)
+                        ? users.find((adminUser) => String(adminUser.id) === String(user.id))
+                        : null;
+                    const fallbackClasses = Array.isArray(currentUser?.classes) ? currentUser.classes : [];
+                    setEnrolledClasses(
+                        fallbackClasses.map((classId) => ({
+                            course_id: String(classId),
+                            course_title: `Enrolled Course ${classId}`,
+                            course_description: null,
+                            unresolved: true,
+                        }))
+                    );
+                }
             }
         } catch (error) {
             console.error('Error fetching enrolled classes:', error);
@@ -229,7 +249,9 @@ const ProfilePage = () => {
                 <div className={`mt-8 border rounded-2xl p-8 ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-100 border-slate-300'}`}>
                     <h2 className={`text-2xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-gray-800'}`}>My Enrolled Courses</h2>
                     {classesLoading ? (
-                        <p className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading courses...</p>
+                        <p className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Loading enrolled courses...
+                        </p>
                     ) : enrolledClasses.length === 0 ? (
                         <div className={`border rounded-lg p-4 transition ${darkMode ? 'bg-slate-800 border-slate-700 hover:border-emerald-600' : 'bg-white border-slate-300 hover:border-emerald-500'}`}>
                             <p className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -239,11 +261,14 @@ const ProfilePage = () => {
                     ) : (
                         <div className="grid md:grid-cols-2 gap-4">
                             {enrolledClasses.map((enrolledClass) => (
-                                <div key={enrolledClass.id || enrolledClass.course_id} className={`border rounded-lg p-4 transition ${darkMode ? 'bg-slate-800 border-slate-700 hover:border-emerald-600' : 'bg-white border-slate-300 hover:border-emerald-500'}`}>
+                                <div
+                                    key={enrolledClass.id || enrolledClass.course_id}
+                                    className={`border rounded-lg p-4 transition ${darkMode ? 'bg-slate-800 border-slate-700 hover:border-emerald-600' : 'bg-white border-slate-300 hover:border-emerald-500'}`}
+                                >
                                     <h3 className={`text-lg font-semibold mb-1 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                                         {enrolledClass.course_title || enrolledClass.name || 'Untitled Course'}
                                     </h3>
-                                    <p className={`text-sm mb-2 ${darkMode ? 'text-emerald-300' : 'text-emerald-600'}`}>{enrolledClass.course_id || enrolledClass.id}</p>
+                                    <p className="text-sm text-emerald-500 mb-2">{enrolledClass.course_id || enrolledClass.id}</p>
                                     {enrolledClass.course_description && (
                                         <p className={`text-sm line-clamp-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{enrolledClass.course_description}</p>
                                     )}

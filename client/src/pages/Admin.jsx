@@ -12,6 +12,7 @@ export default function AdminPage() {
   
   const [users, setUsers] = useState([])
   const [classes, setClasses] = useState([])
+  const [completionRequests, setCompletionRequests] = useState([])
   const [allClasses, setAllClasses] = useState([]) // For user assignment
   const [activeTab, setActiveTab] = useState('users')
   const [editingUser, setEditingUser] = useState(null)
@@ -35,8 +36,10 @@ export default function AdminPage() {
       
       if (activeTab === 'users') {
         fetchUsers()
-      } else {
+      } else if (activeTab === 'classes') {
         fetchClasses()
+      } else {
+        fetchCompletionRequests()
       }
     }
   }, [activeTab, isAuthenticated, isAdmin])
@@ -91,6 +94,43 @@ export default function AdminPage() {
       setError('Error fetching classes')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const fetchCompletionRequests = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/admin/completion-requests', { credentials: 'include' })
+      if (response.ok) {
+        const data = await response.json()
+        setCompletionRequests(Array.isArray(data) ? data : [])
+      } else {
+        const data = await response.json().catch(() => ({}))
+        setError(data.message || 'Failed to fetch completion requests')
+      }
+    } catch (error) {
+      setError('Error fetching completion requests')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleApproveCompletionRequest = async (requestId) => {
+    try {
+      const response = await fetch(`/api/admin/completion-requests/${requestId}/approve`, {
+        method: 'POST',
+        credentials: 'include'
+      })
+
+      if (response.ok) {
+        setSuccess('Completion request approved')
+        fetchCompletionRequests()
+      } else {
+        const data = await response.json().catch(() => ({}))
+        setError(data.message || 'Failed to approve completion request')
+      }
+    } catch (error) {
+      setError('Error approving completion request')
     }
   }
 
@@ -246,6 +286,16 @@ export default function AdminPage() {
             >
               Manage Classes
             </button>
+            <button
+              onClick={() => setActiveTab('completionRequests')}
+              className={`py-2 px-4 font-semibold ${
+                activeTab === 'completionRequests'
+                  ? 'border-b-2 border-emerald-600 text-emerald-600'
+                  : darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Completion Requests
+            </button>
           </div>
         </div>
 
@@ -398,6 +448,72 @@ export default function AdminPage() {
                             >
                               Delete
                             </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'completionRequests' && (
+          <div>
+            <div className={`rounded-lg shadow-md overflow-hidden border ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-white border-gray-200'}`}>
+              <div className={`px-6 py-4 border-b ${darkMode ? 'border-slate-600' : 'border-gray-200'}`}>
+                <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Course Completion Requests</h2>
+              </div>
+
+              {isLoading ? (
+                <div className={`p-6 text-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading completion requests...</div>
+              ) : completionRequests.length === 0 ? (
+                <div className={`p-6 text-center ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No completion requests found.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className={darkMode ? 'bg-slate-800' : 'bg-gray-50'}>
+                      <tr>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>User</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Email</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Course</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Status</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Requested</th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className={`divide-y ${darkMode ? 'bg-slate-900 divide-slate-700' : 'bg-white divide-gray-200'}`}>
+                      {completionRequests.map((request) => (
+                        <tr key={request.id}>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>{request.user_name || `User ${request.user_id}`}</td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-gray-300' : 'text-gray-900'}`}>{request.user_email || 'N/A'}</td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-gray-300' : 'text-gray-900'}`}>{request.course_title || request.course_id}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              request.status === 'approved'
+                                ? 'bg-green-100 text-green-800'
+                                : request.status === 'pending'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : darkMode ? 'bg-slate-700 text-gray-300' : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {request.status}
+                            </span>
+                          </td>
+                          <td className={`px-6 py-4 whitespace-nowrap text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {request.requested_at ? new Date(request.requested_at).toLocaleString() : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {request.status === 'pending' ? (
+                              <button
+                                onClick={() => handleApproveCompletionRequest(request.id)}
+                                className="text-emerald-600 hover:text-emerald-500"
+                              >
+                                Approve
+                              </button>
+                            ) : (
+                              <span className={darkMode ? 'text-gray-500' : 'text-gray-500'}>No actions</span>
+                            )}
                           </td>
                         </tr>
                       ))}

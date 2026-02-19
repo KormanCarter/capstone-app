@@ -9,17 +9,23 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { darkMode } = useTheme();
   const [courses, setCourses] = useState([]);
+  const [completionStatusByCourse, setCompletionStatusByCourse] = useState({});
+  const [completionBusyCourseId, setCompletionBusyCourseId] = useState('');
+  const [dashboardError, setDashboardError] = useState('');
   const [stats, setStats] = useState({
     totalCourses: 0,
     enrolledCourses: 0,
-    availableCourses: 0
+    availableCourses: 0,
+    completedCourses: 0
   });
   const [loadingCourses, setLoadingCourses] = useState(true);
 
   // Fetch courses and stats when component mounts
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (user?.id) {
+      fetchDashboardData();
+    }
+  }, [user?.id]);
 
   const fetchDashboardData = async () => {
     try {
@@ -35,19 +41,121 @@ export default function Dashboard() {
         }
       }
 
+      let enrolledData = [];
       const enrolledResponse = await fetch('/api/profile/classes', { credentials: 'include' });
-      const enrolledData = enrolledResponse.ok ? await enrolledResponse.json() : [];
+      if (enrolledResponse.ok) {
+        enrolledData = await enrolledResponse.json();
+      } else if (user?.id) {
+        const adminResponse = await fetch('/api/admin/users', { credentials: 'include' });
+        if (adminResponse.ok) {
+          const users = await adminResponse.json();
+          const currentUser = Array.isArray(users)
+            ? users.find((listedUser) => String(listedUser.id) === String(user.id))
+            : null;
+          const fallbackClasses = Array.isArray(currentUser?.classes) ? currentUser.classes : [];
+          enrolledData = fallbackClasses.map((classId) => ({
+            course_id: String(classId),
+            course_title: `Enrolled Course ${classId}`,
+          }));
+        }
+      }
+
+      const completionResponse = await fetch('/api/completion-requests/my', { credentials: 'include' });
+      const completionRequests = completionResponse.ok ? await completionResponse.json() : [];
+
+      const classLookup = new Map();
+      if (Array.isArray(coursesData)) {
+        coursesData.forEach((course) => {
+          if (course?.course_id) {
+            classLookup.set(String(course.course_id), course);
+          }
+          if (course?.id !== null && typeof course?.id !== 'undefined') {
+            classLookup.set(String(course.id), course);
+          }
+        });
+      }
+
+      const normalizedEnrolledCourses = Array.isArray(enrolledData)
+        ? enrolledData.map((course) => {
+            const key = course?.course_id || course?.id;
+            if (!key) return course;
+            return classLookup.get(String(key)) || course;
+          })
+        : [];
 
       const totalCourses = Array.isArray(coursesData) ? coursesData.length : 0;
-      const enrolledCourses = Array.isArray(enrolledData) ? enrolledData.length : 0;
+      const enrolledCourses = normalizedEnrolledCourses.length;
       const availableCourses = Math.max(totalCourses - enrolledCourses, 0);
+      const completedCourses = Array.isArray(completionRequests)
+        ? completionRequests.filter((request) => request.status === 'approved').length
+        : 0;
 
-      setCourses(Array.isArray(coursesData) ? coursesData.slice(0, 6) : []);
-      setStats({ totalCourses, enrolledCourses, availableCourses });
+      const nextCompletionStatusByCourse = {};
+      if (Array.isArray(completionRequests)) {
+        completionRequests.forEach((request) => {
+          const courseId = request?.course_id ? String(request.course_id) : '';
+          if (courseId && !nextCompletionStatusByCourse[courseId]) {
+            nextCompletionStatusByCourse[courseId] = request.status;
+          }
+        });
+      }
+
+      setCourses(normalizedEnrolledCourses.slice(0, 6));
+      setCompletionStatusByCourse(nextCompletionStatusByCourse);
+      setStats({ totalCourses, enrolledCourses, availableCourses, completedCourses });
+      setDashboardError('');
       setLoadingCourses(false);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setDashboardError('Failed to load your courses. Please refresh.');
       setLoadingCourses(false);
+    }
+  };
+
+  const getCourseId = (course) => {
+    if (!course) return '';
+    if (course.course_id) return String(course.course_id);
+    if (course.id !== null && typeof course.id !== 'undefined') return String(course.id);
+    return '';
+  };
+
+  const handleCompleteCourse = async (course) => {
+    const courseId = getCourseId(course);
+    if (!courseId) {
+      setDashboardError('Unable to determine course id.');
+      return;
+    }
+
+    const status = completionStatusByCourse[courseId];
+    if (status === 'pending' || status === 'approved') {
+      return;
+    }
+
+    try {
+      setCompletionBusyCourseId(courseId);
+      const response = await fetch(`/api/classes/${encodeURIComponent(courseId)}/completion-request`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (response.status === 409) {
+          setCompletionStatusByCourse((previous) => ({ ...previous, [courseId]: 'pending' }));
+          setDashboardError('');
+          return;
+        }
+        setDashboardError(data.message || data.error || 'Failed to submit completion request');
+        return;
+      }
+
+      setCompletionStatusByCourse((previous) => ({ ...previous, [courseId]: 'pending' }));
+      setDashboardError('');
+    } catch (error) {
+      console.error('Completion request error:', error);
+      setDashboardError('Failed to submit completion request');
+    } finally {
+      setCompletionBusyCourseId('');
     }
   };
 
@@ -102,15 +210,15 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Available Courses Section */}
+          {/* My Courses Section */}
           <div className="mb-8">
             <div className="flex justify-between items-center mb-6">
-              <h2 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Available Courses</h2>
+              <h2 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>My Courses</h2>
               <Link 
                 to="/courses"
                 className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-2"
               >
-                View All →
+                Manage Courses →
               </Link>
             </div>
 
@@ -119,9 +227,8 @@ export default function Dashboard() {
             ) : courses.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {courses.map(course => (
-                  <Link 
-                    key={course.id}
-                    to="/courses"
+                  <div 
+                    key={course.id || course.course_id}
                     className={`rounded-lg p-6 border transition duration-300 group ${darkMode ? 'bg-slate-900 border-slate-600 hover:border-emerald-600' : 'bg-slate-100 border-slate-300 hover:border-emerald-500'}`}
                   >
                     <h3 className={`text-xl font-bold mb-2 group-hover:text-emerald-400 transition ${darkMode ? 'text-white' : 'text-gray-800'}`}>
@@ -132,18 +239,60 @@ export default function Dashboard() {
                     </p>
                     <div className="flex justify-between items-center">
                       <span className="text-emerald-400 font-semibold">
-                        {course.tuition_cost ? `$${course.tuition_cost}` : 'Free'}
+                        {course.tuition_cost !== null && typeof course.tuition_cost !== 'undefined' ? `$${course.tuition_cost}` : 'N/A'}
                       </span>
-                      <span className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
-                        View Details →
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        completionStatusByCourse[getCourseId(course)] === 'approved'
+                          ? 'bg-green-100 text-green-800'
+                          : completionStatusByCourse[getCourseId(course)] === 'pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : darkMode ? 'bg-slate-800 text-gray-300' : 'bg-gray-200 text-gray-700'
+                      }`}>
+                        {completionStatusByCourse[getCourseId(course)] === 'approved'
+                          ? 'Completed'
+                          : completionStatusByCourse[getCourseId(course)] === 'pending'
+                            ? 'Pending Approval'
+                            : 'Enrolled'}
                       </span>
                     </div>
-                  </Link>
+                    <div className="mt-4 flex gap-3">
+                      <button
+                        onClick={() => handleCompleteCourse(course)}
+                        disabled={completionBusyCourseId === getCourseId(course) || completionStatusByCourse[getCourseId(course)] === 'pending' || completionStatusByCourse[getCourseId(course)] === 'approved'}
+                        className={`flex-1 text-white px-4 py-2 rounded-lg font-semibold transition duration-300 ${
+                          completionStatusByCourse[getCourseId(course)] === 'approved'
+                            ? 'bg-emerald-700'
+                            : completionStatusByCourse[getCourseId(course)] === 'pending'
+                              ? 'bg-amber-600'
+                              : 'bg-blue-600 hover:bg-blue-500'
+                        } ${(completionBusyCourseId === getCourseId(course) || completionStatusByCourse[getCourseId(course)] === 'pending' || completionStatusByCourse[getCourseId(course)] === 'approved') ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      >
+                        {completionBusyCourseId === getCourseId(course)
+                          ? 'Submitting...'
+                          : completionStatusByCourse[getCourseId(course)] === 'approved'
+                            ? 'Completed'
+                            : completionStatusByCourse[getCourseId(course)] === 'pending'
+                              ? 'Pending Approval'
+                              : 'Complete Course'}
+                      </button>
+                      <Link
+                        to="/courses"
+                        className={`px-4 py-2 rounded-lg font-semibold transition duration-300 ${darkMode ? 'bg-slate-800 text-gray-200 hover:bg-slate-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                      >
+                        Open
+                      </Link>
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
               <div className={`text-center py-12 rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-100 border-slate-300'}`}>
-                <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No courses available yet.</p>
+                <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>You are not enrolled in any courses yet.</p>
+              </div>
+            )}
+            {dashboardError && (
+              <div className={`mt-4 border px-6 py-4 rounded-lg ${darkMode ? 'bg-red-900 border-red-600 text-red-200' : 'bg-red-100 border-red-400 text-red-800'}`}>
+                {dashboardError}
               </div>
             )}
           </div>

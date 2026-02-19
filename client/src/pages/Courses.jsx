@@ -5,14 +5,18 @@ import Navbar from '../components/Navbar';
 import SearchBar from '../components/SearchBar';
 import PopupComponent from '../components/PopUp.jsx';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function CoursesPage() {
     const { darkMode } = useTheme();
+    const { user } = useAuth();
     const [showPopup, setShowPopup] = useState(false);
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [courses, setCourses] = useState([]);
     const [enrolledCourseIds, setEnrolledCourseIds] = useState([]);
     const [enrollmentBusy, setEnrollmentBusy] = useState(false);
+    const [completionBusy, setCompletionBusy] = useState(false);
+    const [completionStatusByCourse, setCompletionStatusByCourse] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -24,14 +28,38 @@ export default function CoursesPage() {
         return '';
     };
 
+    const normalizeCourseId = (value, catalog = courses) => {
+        const normalized = String(value || '');
+        if (!normalized) return '';
+
+        const matchedCourse = Array.isArray(catalog)
+            ? catalog.find((course) => String(course.course_id) === normalized || String(course.id) === normalized)
+            : null;
+
+        if (matchedCourse?.course_id) return String(matchedCourse.course_id);
+        if (matchedCourse?.id) return String(matchedCourse.id);
+        return normalized;
+    };
+
     const fetchEnrolledClasses = async () => {
         try {
             const response = await fetch('/api/profile/classes', { credentials: 'include' });
             if (!response.ok) {
+                if (user?.id) {
+                    const adminResponse = await fetch('/api/admin/users', { credentials: 'include' });
+                    if (adminResponse.ok) {
+                        const users = await adminResponse.json();
+                        const currentUser = Array.isArray(users)
+                            ? users.find((adminUser) => String(adminUser.id) === String(user.id))
+                            : null;
+                        const classes = Array.isArray(currentUser?.classes) ? currentUser.classes : [];
+                        setEnrolledCourseIds(classes.map((classId) => normalizeCourseId(classId)).filter(Boolean));
+                    }
+                }
                 return;
             }
             const data = await response.json();
-            setEnrolledCourseIds(data.map((course) => getCourseId(course)).filter(Boolean));
+            setEnrolledCourseIds(data.map((course) => normalizeCourseId(getCourseId(course))).filter(Boolean));
         } catch (fetchError) {
             console.error('Error fetching enrolled classes:', fetchError);
         }
@@ -88,10 +116,55 @@ export default function CoursesPage() {
         }
     };
 
+    const fetchCompletionRequests = async () => {
+        try {
+            const response = await fetch('/api/completion-requests/my', { credentials: 'include' });
+            if (!response.ok) {
+                if (user?.id) {
+                    const adminResponse = await fetch('/api/admin/completion-requests', { credentials: 'include' });
+                    if (adminResponse.ok) {
+                        const allRequests = await adminResponse.json();
+                        const userRequests = Array.isArray(allRequests)
+                            ? allRequests.filter((request) => String(request.user_id) === String(user.id))
+                            : [];
+
+                        const nextStatusByCourse = {};
+                        userRequests.forEach((request) => {
+                            const courseId = request?.course_id ? normalizeCourseId(request.course_id) : '';
+                            if (courseId && !nextStatusByCourse[courseId]) {
+                                nextStatusByCourse[courseId] = request.status;
+                            }
+                        });
+                        setCompletionStatusByCourse(nextStatusByCourse);
+                    }
+                }
+                return;
+            }
+
+            const data = await response.json();
+            const nextStatusByCourse = {};
+
+            if (Array.isArray(data)) {
+                data.forEach((request) => {
+                    const courseId = request?.course_id ? normalizeCourseId(request.course_id) : '';
+                    if (!courseId) return;
+                    if (!nextStatusByCourse[courseId]) {
+                        nextStatusByCourse[courseId] = request.status;
+                    }
+                });
+            }
+
+            setCompletionStatusByCourse(nextStatusByCourse);
+        } catch (requestError) {
+            console.error('Error fetching completion requests:', requestError);
+        }
+    };
+
     useEffect(() => {
         fetchCourses();
         fetchEnrolledClasses();
-    }, []);
+        fetchCompletionRequests();
+    }, [user?.id]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -114,7 +187,7 @@ export default function CoursesPage() {
     const handleEnrollmentToggle = async () => {
         if (!selectedCourse) return;
 
-        const courseId = getCourseId(selectedCourse);
+        const courseId = normalizeCourseId(getCourseId(selectedCourse));
         if (!courseId) {
             setError('Unable to determine class id.');
             return;
@@ -136,6 +209,56 @@ export default function CoursesPage() {
                     setError('Please log in to manage enrollment');
                     return;
                 }
+
+                if (response.status === 404 && user?.id) {
+                    const usersResponse = await fetch('/api/admin/users', { credentials: 'include' });
+                    if (!usersResponse.ok) {
+                        setError('Failed to update enrollment');
+                        return;
+                    }
+
+                    const users = await usersResponse.json();
+                    const currentUser = Array.isArray(users)
+                        ? users.find((adminUser) => String(adminUser.id) === String(user.id))
+                        : null;
+
+                    if (!currentUser) {
+                        setError('Failed to update enrollment');
+                        return;
+                    }
+
+                    const currentClasses = Array.isArray(currentUser.classes)
+                        ? currentUser.classes.map((classId) => normalizeCourseId(classId))
+                        : [];
+
+                    const nextClasses = isEnrolled
+                        ? currentClasses.filter((classId) => classId !== courseId)
+                        : (currentClasses.includes(courseId) ? currentClasses : [...currentClasses, courseId]);
+
+                    const updateResponse = await fetch(`/api/admin/users/${encodeURIComponent(user.id)}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            name: currentUser.name,
+                            email: currentUser.email,
+                            is_admin: currentUser.is_admin,
+                            classes: nextClasses,
+                        }),
+                    });
+
+                    if (!updateResponse.ok) {
+                        setError('Failed to update enrollment');
+                        return;
+                    }
+
+                    setError(null);
+                    setEnrolledCourseIds(nextClasses);
+                    return;
+                }
+
                 setError(data.message || data.error || 'Failed to update enrollment');
                 return;
             }
@@ -158,12 +281,64 @@ export default function CoursesPage() {
         }
     };
 
+    const handleCompletionRequest = async () => {
+        if (!selectedCourse) return;
+
+        const courseId = normalizeCourseId(getCourseId(selectedCourse));
+        if (!courseId) {
+            setError('Unable to determine class id.');
+            return;
+        }
+
+        if (!enrolledCourseIds.includes(courseId)) {
+            setError('You must enroll before requesting completion.');
+            return;
+        }
+
+        const currentStatus = completionStatusByCourse[courseId];
+        if (currentStatus === 'pending' || currentStatus === 'approved') {
+            return;
+        }
+
+        try {
+            setCompletionBusy(true);
+            const response = await fetch(`/api/classes/${encodeURIComponent(courseId)}/completion-request`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                if (response.status === 409) {
+                    setCompletionStatusByCourse((previous) => ({ ...previous, [courseId]: 'pending' }));
+                    setError(null);
+                    return;
+                }
+                setError(data.message || data.error || 'Failed to submit completion request');
+                return;
+            }
+
+            setCompletionStatusByCourse((previous) => ({ ...previous, [courseId]: 'pending' }));
+            setError(null);
+        } catch (requestError) {
+            console.error('Completion request error:', requestError);
+            setError('Failed to submit completion request');
+        } finally {
+            setCompletionBusy(false);
+        }
+    };
+
+    const selectedCourseId = selectedCourse ? normalizeCourseId(getCourseId(selectedCourse)) : '';
+    const selectedCompletionStatus = selectedCourseId ? completionStatusByCourse[selectedCourseId] : null;
+    const isSelectedEnrolled = selectedCourseId ? enrolledCourseIds.includes(selectedCourseId) : false;
+
 
     return (
         <div className={`min-h-screen ${darkMode ? 'bg-black' : 'bg-white'}`}>
             <Header />
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <h1 className={`text-4xl font-bold mb-8 ${darkMode ? 'text-gray-50' : 'text-gray-800'}`}>Available Courses</h1>
+                <h1 className={`text-4xl font-bold mb-8 ${darkMode ? 'text-gray-50' : 'text-gray-800'}`}>My Courses</h1>
                 
                 <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
                 
@@ -255,6 +430,27 @@ export default function CoursesPage() {
                                             : enrolledCourseIds.includes(getCourseId(selectedCourse))
                                                 ? 'Unenroll'
                                                 : 'Enroll Now'}
+                                    </button>
+                                    <button
+                                        onClick={handleCompletionRequest}
+                                        disabled={completionBusy || !isSelectedEnrolled || selectedCompletionStatus === 'pending' || selectedCompletionStatus === 'approved'}
+                                        className={`flex-1 text-white px-6 py-3 rounded-lg font-semibold transition duration-300 ${
+                                            selectedCompletionStatus === 'approved'
+                                                ? 'bg-emerald-700'
+                                                : selectedCompletionStatus === 'pending'
+                                                    ? 'bg-amber-600'
+                                                    : 'bg-blue-600 hover:bg-blue-500'
+                                        } ${(completionBusy || !isSelectedEnrolled || selectedCompletionStatus === 'pending' || selectedCompletionStatus === 'approved') ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                    >
+                                        {completionBusy
+                                            ? 'Submitting...'
+                                            : !isSelectedEnrolled
+                                                ? 'Enroll to Complete'
+                                                : selectedCompletionStatus === 'approved'
+                                                    ? 'Completed (Approved)'
+                                                    : selectedCompletionStatus === 'pending'
+                                                        ? 'Pending Admin Approval'
+                                                        : 'Complete Course'}
                                     </button>
                                     <button 
                                         onClick={closePopup}

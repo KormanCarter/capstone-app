@@ -24,3 +24,18 @@ ALTER TABLE session ADD CONSTRAINT session_pkey PRIMARY KEY (sid) NOT DEFERRABLE
 
 -- Create index for better performance
 CREATE INDEX IF NOT EXISTS IDX_session_expire ON session(expire);
+
+-- Track course completion requests that require admin approval
+CREATE TABLE IF NOT EXISTS completion_requests (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    course_id TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP,
+    reviewed_by INTEGER REFERENCES users(id),
+    UNIQUE(user_id, course_id, status)
+);
+
+CREATE INDEX IF NOT EXISTS idx_completion_requests_user_id ON completion_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_completion_requests_status ON completion_requests(status);

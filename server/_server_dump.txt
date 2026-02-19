@@ -15,29 +15,6 @@ const PORT = process.env.PORT || 3001;
 const CLIENT_URL = 'http://localhost:5173';
 
 const app = express();
-const ensureCompletionRequestsTable = async () => {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS completion_requests (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        course_id TEXT NOT NULL,
-        status VARCHAR(20) NOT NULL DEFAULT 'pending',
-        requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        reviewed_at TIMESTAMP,
-        reviewed_by INTEGER REFERENCES users(id),
-        UNIQUE(user_id, course_id, status)
-      )
-    `);
-
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_completion_requests_user_id ON completion_requests(user_id)');
-    await pool.query('CREATE INDEX IF NOT EXISTS idx_completion_requests_status ON completion_requests(status)');
-  } catch (error) {
-    console.error('Error ensuring completion_requests table:', error);
-  }
-};
-
-ensureCompletionRequestsTable();
 
 // Configure CORS
 app.use(cors({
@@ -127,28 +104,20 @@ app.post('/auth/register', async (req, res) => {
       [email, hashedPassword, name]
     );
 
-    // Destroy any existing session before creating a new one
-    req.session.regenerate((err) => {
+    // Log in the user
+    req.login(newUser.rows[0], (err) => {
       if (err) {
-        console.error('Session regeneration error:', err);
-        return res.status(500).json({ message: 'Error creating session' });
+        console.error('Login error:', err);
+        return res.status(500).json({ message: 'Error logging in after registration' });
       }
-      
-      // Log in the new user
-      req.login(newUser.rows[0], (err) => {
-        if (err) {
-          console.error('Login error:', err);
-          return res.status(500).json({ message: 'Error logging in after registration' });
-        }
-        res.json({ 
-          message: 'Registration successful', 
-          user: { 
-            id: newUser.rows[0].id, 
-            email: newUser.rows[0].email, 
-            name: newUser.rows[0].name,
-            is_admin: toBoolean(newUser.rows[0].is_admin)
-          } 
-        });
+      res.json({ 
+        message: 'Registration successful', 
+        user: { 
+          id: newUser.rows[0].id, 
+          email: newUser.rows[0].email, 
+          name: newUser.rows[0].name,
+          is_admin: toBoolean(newUser.rows[0].is_admin)
+        } 
       });
     });
   } catch (error) {
@@ -168,27 +137,19 @@ app.post('/auth/login', (req, res, next) => {
       return res.status(400).json({ message: info.message || 'Invalid credentials' });
     }
     
-    // Regenerate session to prevent session fixation attacks
-    req.session.regenerate((err) => {
+    req.login(user, (err) => {
       if (err) {
-        console.error('Session regeneration error:', err);
+        console.error('Session login error:', err);
         return res.status(500).json({ message: 'Error creating session' });
       }
-      
-      req.login(user, (err) => {
-        if (err) {
-          console.error('Session login error:', err);
-          return res.status(500).json({ message: 'Error creating session' });
-        }
-        res.json({ 
-          message: 'Login successful', 
-          user: { 
-            id: user.id, 
-            email: user.email, 
-            name: user.name,
-            is_admin: toBoolean(user.is_admin)
-          } 
-        });
+      res.json({ 
+        message: 'Login successful', 
+        user: { 
+          id: user.id, 
+          email: user.email, 
+          name: user.name,
+          is_admin: toBoolean(user.is_admin)
+        } 
       });
     });
   })(req, res, next);
@@ -681,164 +642,6 @@ app.put("/api/profile/update", isAuthenticated, async (req, res) => {
     res.status(500).json({ message: 'Failed to update profile' });
   }
 })
-
-app.get('/api/profile/classes', isAuthenticated, async (req, res) => {
-  try {
-    const userResult = await pool.query('SELECT classes FROM users WHERE id = $1', [req.user.id]);
-    if (userResult.rows.length === 0) return res.status(404).json({ message: 'User not found' });
-
-    const classes = Array.isArray(userResult.rows[0].classes) ? userResult.rows[0].classes : [];
-    if (classes.length === 0) return res.json([]);
-
-    const enrolledResult = await pool.query(
-      `SELECT * FROM class2 WHERE course_id = ANY($1::text[]) OR id::text = ANY($1::text[]) ORDER BY course_id`,
-      [classes]
-    );
-
-    return res.json(enrolledResult.rows);
-  } catch (error) {
-    console.error('Error fetching enrolled classes:', error);
-    return res.status(500).json({ message: 'Failed to fetch enrolled classes' });
-  }
-});
-
-app.post('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) => {
-  try {
-    const { courseId } = req.params;
-    const classResult = await pool.query('SELECT course_id FROM class2 WHERE course_id = $1 OR id::text = $1 LIMIT 1', [courseId]);
-    if (classResult.rows.length === 0) return res.status(404).json({ message: 'Class not found' });
-
-    const normalizedCourseId = classResult.rows[0].course_id;
-    const updateResult = await pool.query(
-      `UPDATE users
-       SET classes = CASE
-         WHEN classes IS NULL THEN ARRAY[$1]::text[]
-         WHEN NOT ($1 = ANY(classes)) THEN array_append(classes, $1)
-         ELSE classes
-       END,
-       updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2
-       RETURNING classes`,
-      [normalizedCourseId, req.user.id]
-    );
-
-    return res.json({ message: 'Enrolled successfully', classes: updateResult.rows[0]?.classes || [] });
-  } catch (error) {
-    console.error('Error enrolling in class:', error);
-    return res.status(500).json({ message: 'Failed to enroll in class' });
-  }
-});
-
-app.delete('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) => {
-  try {
-    const { courseId } = req.params;
-    const classResult = await pool.query('SELECT course_id FROM class2 WHERE course_id = $1 OR id::text = $1 LIMIT 1', [courseId]);
-    const normalizedCourseId = classResult.rows[0]?.course_id || courseId;
-
-    const updateResult = await pool.query(
-      `UPDATE users
-       SET classes = array_remove(array_remove(COALESCE(classes, ARRAY[]::text[]), $1), $2),
-       updated_at = CURRENT_TIMESTAMP
-       WHERE id = $3
-       RETURNING classes`,
-      [courseId, normalizedCourseId, req.user.id]
-    );
-
-    return res.json({ message: 'Unenrolled successfully', classes: updateResult.rows[0]?.classes || [] });
-  } catch (error) {
-    console.error('Error unenrolling from class:', error);
-    return res.status(500).json({ message: 'Failed to unenroll from class' });
-  }
-});
-
-app.get('/api/completion-requests/my', isAuthenticated, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT cr.id, cr.course_id, cr.status, cr.requested_at, cr.reviewed_at, c.course_title
-       FROM completion_requests cr
-       LEFT JOIN class2 c ON c.course_id = cr.course_id OR c.id::text = cr.course_id
-       WHERE cr.user_id = $1
-       ORDER BY cr.requested_at DESC`,
-      [req.user.id]
-    );
-    return res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching completion requests:', error);
-    return res.status(500).json({ message: 'Failed to fetch completion requests' });
-  }
-});
-
-app.post('/api/classes/:courseId/completion-request', isAuthenticated, async (req, res) => {
-  try {
-    const { courseId } = req.params;
-    const classResult = await pool.query('SELECT course_id FROM class2 WHERE course_id = $1 OR id::text = $1 LIMIT 1', [courseId]);
-    if (classResult.rows.length === 0) return res.status(404).json({ message: 'Class not found' });
-
-    const normalizedCourseId = classResult.rows[0].course_id;
-    const userResult = await pool.query('SELECT classes FROM users WHERE id = $1', [req.user.id]);
-    const enrolledClasses = Array.isArray(userResult.rows[0]?.classes) ? userResult.rows[0].classes : [];
-
-    if (!enrolledClasses.includes(normalizedCourseId) && !enrolledClasses.includes(courseId)) {
-      return res.status(400).json({ message: 'You must be enrolled before requesting completion' });
-    }
-
-    const pendingResult = await pool.query(
-      'SELECT id FROM completion_requests WHERE user_id = $1 AND course_id = $2 AND status = $3 LIMIT 1',
-      [req.user.id, normalizedCourseId, 'pending']
-    );
-    if (pendingResult.rows.length > 0) return res.status(409).json({ message: 'Completion request already pending approval' });
-
-    const insertResult = await pool.query(
-      `INSERT INTO completion_requests (user_id, course_id, status)
-       VALUES ($1, $2, 'pending')
-       RETURNING id, user_id, course_id, status, requested_at`,
-      [req.user.id, normalizedCourseId]
-    );
-
-    return res.status(201).json({ message: 'Completion request submitted for admin approval', request: insertResult.rows[0] });
-  } catch (error) {
-    console.error('Error submitting completion request:', error);
-    return res.status(500).json({ message: 'Failed to submit completion request' });
-  }
-});
-
-app.get('/api/admin/completion-requests', isAuthenticated, isAdmin, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT cr.id, cr.user_id, cr.course_id, cr.status, cr.requested_at, cr.reviewed_at, cr.reviewed_by,
-              u.name AS user_name, u.email AS user_email, reviewer.name AS reviewer_name, c.course_title
-       FROM completion_requests cr
-       JOIN users u ON u.id = cr.user_id
-       LEFT JOIN users reviewer ON reviewer.id = cr.reviewed_by
-       LEFT JOIN class2 c ON c.course_id = cr.course_id OR c.id::text = cr.course_id
-       ORDER BY CASE WHEN cr.status = 'pending' THEN 0 ELSE 1 END, cr.requested_at DESC`
-    );
-    return res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching admin completion requests:', error);
-    return res.status(500).json({ message: 'Failed to fetch completion requests' });
-  }
-});
-
-app.post('/api/admin/completion-requests/:id/approve', isAuthenticated, isAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await pool.query(
-      `UPDATE completion_requests
-       SET status = 'approved', reviewed_at = CURRENT_TIMESTAMP, reviewed_by = $1
-       WHERE id = $2 AND status = 'pending'
-       RETURNING id, user_id, course_id, status, requested_at, reviewed_at, reviewed_by`,
-      [req.user.id, id]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ message: 'Pending request not found' });
-    return res.json({ message: 'Completion request approved', request: result.rows[0] });
-  } catch (error) {
-    console.error('Error approving completion request:', error);
-    return res.status(500).json({ message: 'Failed to approve completion request' });
-  }
-});
 app.listen(PORT, () => {
   console.log(`Server listening on ${PORT}`);
 });
-
-
