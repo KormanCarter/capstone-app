@@ -1,20 +1,23 @@
 import { Link } from 'react-router-dom';
 import Header from '../../utilities/Header.jsx';
 import Footer from '../../utilities/Footer.jsx';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function Landing() {
+  const { darkMode } = useTheme();
+  
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
       <Header />
 
       {/* Hero Section */}
-      <section className="bg-black text-white py-20 md:py-28">
+      <section className={`py-20 md:py-28 ${darkMode ? 'bg-black text-white' : 'bg-white text-gray-800'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-5xl md:text-6xl font-extrabold mb-6 leading-tight">
                 Transform Your Future with 
-                <span className="block text-emerald-200">Learning</span>
+                <span className="block text-emerald-400">Learning</span>
               </h2>
               <div className="flex flex-wrap gap-4">
                 <Link 
@@ -25,7 +28,7 @@ export default function Landing() {
                 </Link>
                 <Link 
                   to="/courses"
-                  className="bg-white/20 backdrop-blur-sm text-white px-8 py-4 rounded-lg font-bold hover:bg-white/30 transition duration-300 text-lg"
+                  className={`px-8 py-4 rounded-lg font-bold transition duration-300 text-lg ${darkMode ? 'bg-white/20 backdrop-blur-sm text-white hover:bg-white/30' : 'bg-black/10 backdrop-blur-sm text-gray-800 hover:bg-black/20'}`}
                 >
                   Browse Courses
                 </Link>
@@ -46,15 +49,15 @@ export default function Landing() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-12 bg-gray-950">
+      <section className={`py-12 ${darkMode ? 'bg-gray-950' : 'bg-gray-100'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
-            <h2 className="text-4xl font-bold text-gray-50 mb-3">Get Started</h2>
+            <h2 className={`text-4xl font-bold mb-3 ${darkMode ? 'text-gray-50' : 'text-gray-800'}`}>Get Started</h2>
           </div>
           <div className="flex justify-center gap-4">
             <Link
               to="/login"
-              className="px-8 py-4 rounded-lg font-semibold transition duration-300 bg-gray-700 text-white hover:bg-gray-600 hover:shadow-lg text-lg"
+              className={`px-8 py-4 rounded-lg font-semibold transition duration-300 text-lg ${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'} hover:shadow-lg`}
             >
               Log In
             </Link>

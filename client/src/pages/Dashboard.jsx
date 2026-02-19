@@ -3,9 +3,11 @@ import { useState, useEffect } from 'react';
 import Header from '../../utilities/Header.jsx';
 import Footer from '../../utilities/Footer.jsx';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { darkMode } = useTheme();
   const [courses, setCourses] = useState([]);
   const [stats, setStats] = useState({
     totalCourses: 0,
@@ -37,7 +39,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className={`min-h-screen ${darkMode ? 'bg-black' : 'bg-white'}`}>
       <Header />
       
       {/* Welcome Section */}
@@ -53,34 +55,34 @@ export default function Dashboard() {
       </section>
 
       {/* Stats Dashboard */}
-      <section className="py-8 bg-black">
+      <section className={`py-8 ${darkMode ? 'bg-black' : 'bg-white'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-3 gap-6 mb-8">
             {/* Total Courses */}
-            <div className="bg-slate-900 border border-slate-600 rounded-xl p-6 hover:border-emerald-600 transition duration-300">
+            <div className={`rounded-xl p-6 border transition duration-300 ${darkMode ? 'bg-slate-900 border-slate-600 hover:border-emerald-600' : 'bg-slate-100 border-slate-300 hover:border-emerald-500'}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm uppercase tracking-wide mb-2">Total Courses</p>
-                  <p className="text-4xl font-bold text-white">{stats.totalCourses}</p>
+                  <p className={`text-sm uppercase tracking-wide mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Courses</p>
+                  <p className={`text-4xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>{stats.totalCourses}</p>
                 </div>
               </div>
             </div>
 
             {/* Enrolled Courses */}
-            <div className="bg-slate-900 border border-slate-600 rounded-xl p-6 hover:border-emerald-600 transition duration-300">
+            <div className={`rounded-xl p-6 border transition duration-300 ${darkMode ? 'bg-slate-900 border-slate-600 hover:border-emerald-600' : 'bg-slate-100 border-slate-300 hover:border-emerald-500'}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm uppercase tracking-wide mb-2">Enrolled</p>
+                  <p className={`text-sm uppercase tracking-wide mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Enrolled</p>
                   <p className="text-4xl font-bold text-emerald-400">{stats.enrolledCourses}</p>
                 </div>
               </div>
             </div>
 
             {/* Completed Courses */}
-            <div className="bg-slate-900 border border-slate-600 rounded-xl p-6 hover:border-emerald-600 transition duration-300">
+            <div className={`rounded-xl p-6 border transition duration-300 ${darkMode ? 'bg-slate-900 border-slate-600 hover:border-emerald-600' : 'bg-slate-100 border-slate-300 hover:border-emerald-500'}`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-gray-400 text-sm uppercase tracking-wide mb-2">Completed</p>
+                  <p className={`text-sm uppercase tracking-wide mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Completed</p>
                   <p className="text-4xl font-bold text-emerald-400">{stats.completedCourses}</p>
                 </div>
               </div>
@@ -90,7 +92,7 @@ export default function Dashboard() {
           {/* Available Courses Section */}
           <div className="mb-8">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-3xl font-bold text-white">Available Courses</h2>
+              <h2 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Available Courses</h2>
               <Link 
                 to="/courses"
                 className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-2"
@@ -100,26 +102,26 @@ export default function Dashboard() {
             </div>
 
             {loadingCourses ? (
-              <p className="text-gray-400 text-center py-12">Loading courses...</p>
+              <p className={`text-center py-12 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading courses...</p>
             ) : courses.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {courses.map(course => (
                   <Link 
                     key={course.id}
                     to="/courses"
-                    className="bg-slate-900 border border-slate-600 rounded-lg p-6 hover:border-emerald-600 transition duration-300 group"
+                    className={`rounded-lg p-6 border transition duration-300 group ${darkMode ? 'bg-slate-900 border-slate-600 hover:border-emerald-600' : 'bg-slate-100 border-slate-300 hover:border-emerald-500'}`}
                   >
-                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-emerald-400 transition">
+                    <h3 className={`text-xl font-bold mb-2 group-hover:text-emerald-400 transition ${darkMode ? 'text-white' : 'text-gray-800'}`}>
                       {course.course_title || course.name}
                     </h3>
-                    <p className="text-gray-400 mb-4 line-clamp-2">
+                    <p className={`mb-4 line-clamp-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       {course.course_description}
                     </p>
                     <div className="flex justify-between items-center">
                       <span className="text-emerald-400 font-semibold">
                         {course.tuition_cost ? `$${course.tuition_cost}` : 'Free'}
                       </span>
-                      <span className="text-gray-500 text-sm">
+                      <span className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
                         View Details →
                       </span>
                     </div>
@@ -127,8 +129,8 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 bg-slate-900 rounded-xl border border-slate-600">
-                <p className="text-gray-400 text-lg">No courses available yet.</p>
+              <div className={`text-center py-12 rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-100 border-slate-300'}`}>
+                <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>No courses available yet.</p>
               </div>
             )}
           </div>
