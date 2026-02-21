@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Header from '../../utilities/Header.jsx';
-import Footer from '../../utilities/Footer.jsx';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -398,7 +397,6 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

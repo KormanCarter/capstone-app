@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import Header from '../../utilities/Header.jsx';
-import Footer from '../../utilities/Footer.jsx';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function Landing() {
@@ -71,7 +70,6 @@ export default function Landing() {
         </div>
       </section>
 
-      <Footer />
     </div>
   );
 }

@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useNavigate } from 'react-router-dom'
 import Header from '../../utilities/Header'
-import Footer from '../../utilities/Footer'
 
 export default function AdminPage() {
   const { user, isAdmin, isAuthenticated, loading } = useAuth()
@@ -544,7 +543,6 @@ export default function AdminPage() {
           />
         )}
       </div>
-      <Footer />
     </div>
   )
 }

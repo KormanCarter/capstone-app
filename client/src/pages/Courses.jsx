@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import Header from '../../utilities/Header.jsx'
-import Footer from '../../utilities/Footer.jsx'
 import Navbar from '../components/Navbar';
 import SearchBar from '../components/SearchBar';
 import PopupComponent from '../components/PopUp.jsx';
@@ -518,7 +517,6 @@ export default function CoursesPage() {
                     )}
                 </PopupComponent>
             </div>
-            <Footer />
         </div>
     );
 }
