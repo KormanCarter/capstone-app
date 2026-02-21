@@ -59,11 +59,13 @@ export default function AboutPage() {
 
                         <div className="grid md:grid-cols-2 gap-8">
                             <div className="text-center">
-                                <img
-                                    src="/img/profPicKorman.png"
-                                    alt="Korman Carter"
-                                    className={`w-44 h-44 mx-auto rounded-full border-2 object-cover object-[50%_40%] ${darkMode ? 'border-slate-600 bg-slate-800' : 'border-slate-400 bg-white'}`}
-                                />
+                                <div className={`w-44 h-44 mx-auto rounded-full border-2 overflow-hidden ${darkMode ? 'border-slate-600 bg-slate-800' : 'border-slate-400 bg-white'}`}>
+                                    <img
+                                        src="/img/profPicKC.png"
+                                        alt="Korman Carter"
+                                        className="w-full h-full object-cover object-center scale-110 translate-x-2"
+                                    />
+                                </div>
                                 <h3 className={`mt-4 text-xl font-bold ${darkMode ? 'text-gray-50' : 'text-gray-800'}`}>Korman Carter</h3>
                                 <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                     I am a student at MTECH and co-founder of Coda. I plan to pursue a
