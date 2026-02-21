@@ -619,7 +619,16 @@ app.get("/api", (req, res) => {
 // Authenticated classes listing route
 app.get("/api/class2", isAuthenticated, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM class2 ORDER BY id');
+    const result = await pool.query(
+      `SELECT c.*, COALESCE(ec.enrollment_count, 0) AS enrollment_count
+       FROM class2 c
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::int AS enrollment_count
+         FROM users u
+         WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
+       ) ec ON TRUE
+       ORDER BY c.id`
+    );
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching all classes:', error);
@@ -635,15 +644,30 @@ app.get("/api/search-classes", isAuthenticated, async (req, res) => {
     let result;
     if (!query) {
       console.log('Fetching all classes...');
-      result = await pool.query('SELECT * FROM class2 ORDER BY course_id');
+      result = await pool.query(
+        `SELECT c.*, COALESCE(ec.enrollment_count, 0) AS enrollment_count
+         FROM class2 c
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS enrollment_count
+           FROM users u
+           WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
+         ) ec ON TRUE
+         ORDER BY c.course_id`
+      );
     } else {
       console.log('Searching for courses matching:', query);
       result = await pool.query(
-        `SELECT * FROM class2 
-         WHERE LOWER(course_id) LIKE LOWER($1) 
-         OR LOWER(course_title) LIKE LOWER($1) 
-         OR LOWER(course_description) LIKE LOWER($1)
-         ORDER BY course_id`,
+        `SELECT c.*, COALESCE(ec.enrollment_count, 0) AS enrollment_count
+         FROM class2 c
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS enrollment_count
+           FROM users u
+           WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
+         ) ec ON TRUE
+         WHERE LOWER(c.course_id) LIKE LOWER($1) 
+         OR LOWER(c.course_title) LIKE LOWER($1) 
+         OR LOWER(c.course_description) LIKE LOWER($1)
+         ORDER BY c.course_id`,
         [`%${query}%`]
       );
     }
@@ -671,7 +695,15 @@ app.get('/api/profile/classes', isAuthenticated, async (req, res) => {
     if (classes.length === 0) return res.json([]);
 
     const enrolledResult = await pool.query(
-      `SELECT * FROM class2 WHERE course_id = ANY($1::text[]) OR id::text = ANY($1::text[]) ORDER BY course_id`,
+      `SELECT c.*, COALESCE(ec.enrollment_count, 0) AS enrollment_count
+       FROM class2 c
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::int AS enrollment_count
+         FROM users u
+         WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
+       ) ec ON TRUE
+       WHERE c.course_id = ANY($1::text[]) OR c.id::text = ANY($1::text[])
+       ORDER BY c.course_id`,
       [classes]
     );
 
@@ -683,13 +715,60 @@ app.get('/api/profile/classes', isAuthenticated, async (req, res) => {
 });
 
 app.post('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) => {
-  try {
-    const { courseId } = req.params;
-    const classResult = await pool.query('SELECT course_id FROM class2 WHERE course_id = $1 OR id::text = $1 LIMIT 1', [courseId]);
-    if (classResult.rows.length === 0) return res.status(404).json({ message: 'Class not found' });
+  const MAX_ENROLLMENT = 30;
+  const client = await pool.connect();
 
+  try {
+    await client.query('BEGIN');
+
+    const { courseId } = req.params;
+    const classResult = await client.query(
+      'SELECT id, course_id FROM class2 WHERE course_id = $1 OR id::text = $1 LIMIT 1',
+      [courseId]
+    );
+
+    if (classResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Class not found' });
+    }
+
+    const classId = String(classResult.rows[0].id);
     const normalizedCourseId = classResult.rows[0].course_id;
-    const updateResult = await pool.query(
+
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [normalizedCourseId]);
+
+    const userResult = await client.query(
+      'SELECT classes FROM users WHERE id = $1 FOR UPDATE',
+      [req.user.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const userClasses = Array.isArray(userResult.rows[0].classes) ? userResult.rows[0].classes : [];
+    const alreadyEnrolled = userClasses.includes(normalizedCourseId) || userClasses.includes(classId);
+
+    const enrollmentCountResult = await client.query(
+      `SELECT COUNT(*)::int AS enrollment_count
+       FROM users
+       WHERE COALESCE(classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text]`,
+      [normalizedCourseId, classId]
+    );
+
+    const enrollmentCount = Number(enrollmentCountResult.rows[0]?.enrollment_count || 0);
+
+    if (!alreadyEnrolled && enrollmentCount >= MAX_ENROLLMENT) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        message: 'Class is full (30 max)',
+        enrollment_count: enrollmentCount,
+        max_enrollment: MAX_ENROLLMENT,
+      });
+    }
+
+    const updateResult = await client.query(
       `UPDATE users
        SET classes = CASE
          WHEN classes IS NULL THEN ARRAY[$1]::text[]
@@ -702,18 +781,34 @@ app.post('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) 
       [normalizedCourseId, req.user.id]
     );
 
-    return res.json({ message: 'Enrolled successfully', classes: updateResult.rows[0]?.classes || [] });
+    await client.query('COMMIT');
+
+    return res.json({
+      message: alreadyEnrolled ? 'Already enrolled' : 'Enrolled successfully',
+      classes: updateResult.rows[0]?.classes || [],
+      enrollment_count: alreadyEnrolled ? enrollmentCount : enrollmentCount + 1,
+      max_enrollment: MAX_ENROLLMENT,
+    });
   } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Enrollment rollback error:', rollbackError);
+    }
     console.error('Error enrolling in class:', error);
     return res.status(500).json({ message: 'Failed to enroll in class' });
+  } finally {
+    client.release();
   }
 });
 
 app.delete('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) => {
+  const MAX_ENROLLMENT = 30;
   try {
     const { courseId } = req.params;
-    const classResult = await pool.query('SELECT course_id FROM class2 WHERE course_id = $1 OR id::text = $1 LIMIT 1', [courseId]);
+    const classResult = await pool.query('SELECT id, course_id FROM class2 WHERE course_id = $1 OR id::text = $1 LIMIT 1', [courseId]);
     const normalizedCourseId = classResult.rows[0]?.course_id || courseId;
+    const classId = classResult.rows[0]?.id ? String(classResult.rows[0].id) : String(courseId);
 
     const updateResult = await pool.query(
       `UPDATE users
@@ -724,7 +819,19 @@ app.delete('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res
       [courseId, normalizedCourseId, req.user.id]
     );
 
-    return res.json({ message: 'Unenrolled successfully', classes: updateResult.rows[0]?.classes || [] });
+    const enrollmentCountResult = await pool.query(
+      `SELECT COUNT(*)::int AS enrollment_count
+       FROM users
+       WHERE COALESCE(classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text]`,
+      [normalizedCourseId, classId]
+    );
+
+    return res.json({
+      message: 'Unenrolled successfully',
+      classes: updateResult.rows[0]?.classes || [],
+      enrollment_count: Number(enrollmentCountResult.rows[0]?.enrollment_count || 0),
+      max_enrollment: MAX_ENROLLMENT,
+    });
   } catch (error) {
     console.error('Error unenrolling from class:', error);
     return res.status(500).json({ message: 'Failed to unenroll from class' });
@@ -801,20 +908,54 @@ app.get('/api/admin/completion-requests', isAuthenticated, isAdmin, async (req, 
 });
 
 app.post('/api/admin/completion-requests/:id/approve', isAuthenticated, isAdmin, async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
+
     const { id } = req.params;
-    const result = await pool.query(
+    const result = await client.query(
       `UPDATE completion_requests
        SET status = 'approved', reviewed_at = CURRENT_TIMESTAMP, reviewed_by = $1
        WHERE id = $2 AND status = 'pending'
        RETURNING id, user_id, course_id, status, requested_at, reviewed_at, reviewed_by`,
       [req.user.id, id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ message: 'Pending request not found' });
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Pending request not found' });
+    }
+
+    const approvedRequest = result.rows[0];
+    const classResult = await client.query(
+      'SELECT id, course_id FROM class2 WHERE course_id = $1 OR id::text = $1 LIMIT 1',
+      [approvedRequest.course_id]
+    );
+
+    const normalizedCourseId = classResult.rows[0]?.course_id || approvedRequest.course_id;
+    const classId = classResult.rows[0]?.id ? String(classResult.rows[0].id) : String(approvedRequest.course_id);
+
+    await client.query(
+      `UPDATE users
+       SET classes = array_remove(array_remove(array_remove(COALESCE(classes, ARRAY[]::text[]), $1), $2), $3),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $4`,
+      [approvedRequest.course_id, normalizedCourseId, classId, approvedRequest.user_id]
+    );
+
+    await client.query('COMMIT');
+
     return res.json({ message: 'Completion request approved', request: result.rows[0] });
   } catch (error) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('Completion approval rollback error:', rollbackError);
+    }
     console.error('Error approving completion request:', error);
     return res.status(500).json({ message: 'Failed to approve completion request' });
+  } finally {
+    client.release();
   }
 });
 app.listen(PORT, () => {

@@ -8,6 +8,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function CoursesPage() {
+    const MAX_ENROLLMENT = 30;
     const { darkMode } = useTheme();
     const { user } = useAuth();
     const [showPopup, setShowPopup] = useState(false);
@@ -39,6 +40,29 @@ export default function CoursesPage() {
         if (matchedCourse?.course_id) return String(matchedCourse.course_id);
         if (matchedCourse?.id) return String(matchedCourse.id);
         return normalized;
+    };
+
+    const getEnrollmentCount = (course) => {
+        const count = Number(course?.enrollment_count);
+        return Number.isFinite(count) ? count : 0;
+    };
+
+    const updateEnrollmentCountForCourse = (courseId, nextCount) => {
+        const normalizedCourseId = normalizeCourseId(courseId);
+        const safeCount = Math.max(0, Number(nextCount) || 0);
+
+        setCourses((previous) => previous.map((course) => {
+            const currentCourseId = normalizeCourseId(getCourseId(course), previous);
+            if (currentCourseId !== normalizedCourseId) return course;
+            return { ...course, enrollment_count: safeCount };
+        }));
+
+        setSelectedCourse((previous) => {
+            if (!previous) return previous;
+            const currentCourseId = normalizeCourseId(getCourseId(previous));
+            if (currentCourseId !== normalizedCourseId) return previous;
+            return { ...previous, enrollment_count: safeCount };
+        });
     };
 
     const fetchEnrolledClasses = async () => {
@@ -210,6 +234,15 @@ export default function CoursesPage() {
                     return;
                 }
 
+                if (response.status === 409) {
+                    const nextCount = Number(data.enrollment_count);
+                    if (Number.isFinite(nextCount)) {
+                        updateEnrollmentCountForCourse(courseId, nextCount);
+                    }
+                    setError(data.message || 'Class is full (30 max)');
+                    return;
+                }
+
                 if (response.status === 404 && user?.id) {
                     const usersResponse = await fetch('/api/admin/users', { credentials: 'include' });
                     if (!usersResponse.ok) {
@@ -273,6 +306,11 @@ export default function CoursesPage() {
                 }
                 return [...previous, courseId];
             });
+
+            const nextCountFromServer = Number(data.enrollment_count);
+            if (Number.isFinite(nextCountFromServer)) {
+                updateEnrollmentCountForCourse(courseId, nextCountFromServer);
+            }
         } catch (toggleError) {
             console.error('Enrollment toggle error:', toggleError);
             setError('Failed to update enrollment');
@@ -332,6 +370,8 @@ export default function CoursesPage() {
     const selectedCourseId = selectedCourse ? normalizeCourseId(getCourseId(selectedCourse)) : '';
     const selectedCompletionStatus = selectedCourseId ? completionStatusByCourse[selectedCourseId] : null;
     const isSelectedEnrolled = selectedCourseId ? enrolledCourseIds.includes(selectedCourseId) : false;
+    const selectedEnrollmentCount = selectedCourse ? getEnrollmentCount(selectedCourse) : 0;
+    const isSelectedCourseFull = selectedEnrollmentCount >= MAX_ENROLLMENT;
 
 
     return (
@@ -367,6 +407,9 @@ export default function CoursesPage() {
                             >
                                 <h3 className={`text-2xl font-bold mb-3 ${darkMode ? 'text-gray-50' : 'text-gray-800'}`}>{class2.name || class2.course_title}</h3>
                                 <p className={`mb-4 line-clamp-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{class2.course_description}</p>
+                                <p className={`text-sm font-semibold ${darkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                                    {getEnrollmentCount(class2)}/{MAX_ENROLLMENT} enrolled
+                                </p>
                                 <div className="flex justify-between items-center">
                                 </div>
                             </div>
@@ -393,6 +436,13 @@ export default function CoursesPage() {
                                     <h3 className={`text-sm uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Description</h3>
                                     <p className={`text-lg leading-relaxed ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>{selectedCourse.course_description}</p>
                                 </div>
+
+                                <div>
+                                    <h3 className={`text-sm uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Enrollment</h3>
+                                    <p className={`text-lg ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                                        {selectedEnrollmentCount}/{MAX_ENROLLMENT} enrolled
+                                    </p>
+                                </div>
                                 
                                 {selectedCourse.tuition_cost && (
                                     <div>
@@ -418,15 +468,19 @@ export default function CoursesPage() {
                                 <div className="pt-6 flex gap-4">
                                     <button
                                         onClick={handleEnrollmentToggle}
-                                        disabled={enrollmentBusy}
+                                        disabled={enrollmentBusy || (!isSelectedEnrolled && isSelectedCourseFull)}
                                         className={`flex-1 text-white px-6 py-3 rounded-lg font-semibold transition duration-300 ${
-                                            enrolledCourseIds.includes(getCourseId(selectedCourse))
+                                            !isSelectedEnrolled && isSelectedCourseFull
+                                                ? 'bg-gray-600'
+                                                : enrolledCourseIds.includes(getCourseId(selectedCourse))
                                                 ? 'bg-red-600 hover:bg-red-500'
                                                 : 'bg-emerald-600 hover:bg-emerald-500'
-                                        } ${enrollmentBusy ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                        } ${(enrollmentBusy || (!isSelectedEnrolled && isSelectedCourseFull)) ? 'opacity-70 cursor-not-allowed' : ''}`}
                                     >
                                         {enrollmentBusy
                                             ? 'Saving...'
+                                            : !isSelectedEnrolled && isSelectedCourseFull
+                                                ? 'Course Full'
                                             : enrolledCourseIds.includes(getCourseId(selectedCourse))
                                                 ? 'Unenroll'
                                                 : 'Enroll Now'}

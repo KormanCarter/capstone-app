@@ -8,7 +8,8 @@ import { useTheme } from '../contexts/ThemeContext';
 export default function Dashboard() {
   const { user } = useAuth();
   const { darkMode } = useTheme();
-  const [courses, setCourses] = useState([]);
+  const [currentCourses, setCurrentCourses] = useState([]);
+  const [completedCoursesList, setCompletedCoursesList] = useState([]);
   const [completionStatusByCourse, setCompletionStatusByCourse] = useState({});
   const [completionBusyCourseId, setCompletionBusyCourseId] = useState('');
   const [dashboardError, setDashboardError] = useState('');
@@ -64,6 +65,15 @@ export default function Dashboard() {
       const completionRequests = completionResponse.ok ? await completionResponse.json() : [];
 
       const classLookup = new Map();
+      const normalizeCourseId = (value) => {
+        const normalized = String(value || '');
+        if (!normalized) return '';
+        const matched = classLookup.get(normalized);
+        if (matched?.course_id) return String(matched.course_id);
+        if (matched?.id !== null && typeof matched?.id !== 'undefined') return String(matched.id);
+        return normalized;
+      };
+
       if (Array.isArray(coursesData)) {
         coursesData.forEach((course) => {
           if (course?.course_id) {
@@ -83,26 +93,59 @@ export default function Dashboard() {
           })
         : [];
 
+      const approvedRequests = Array.isArray(completionRequests)
+        ? completionRequests.filter((request) => request.status === 'approved')
+        : [];
+
+      const completedCourseIds = Array.from(
+        new Set(
+          approvedRequests
+            .map((request) => normalizeCourseId(request?.course_id))
+            .filter(Boolean)
+        )
+      );
+
+      const completedCourses = completedCourseIds.map((courseId) => {
+        const fromCatalog = classLookup.get(courseId);
+        if (fromCatalog) return fromCatalog;
+
+        const matchingRequest = approvedRequests.find(
+          (request) => normalizeCourseId(request?.course_id) === courseId
+        );
+
+        return {
+          course_id: courseId,
+          course_title: matchingRequest?.course_title || `Completed Course ${courseId}`,
+          course_description: 'Completed course',
+          enrollment_count: 0,
+        };
+      });
+
+      const completedCourseIdSet = new Set(completedCourseIds);
+      const currentCoursesFiltered = normalizedEnrolledCourses.filter((course) => {
+        const courseId = normalizeCourseId(course?.course_id || course?.id);
+        return courseId && !completedCourseIdSet.has(courseId);
+      });
+
       const totalCourses = Array.isArray(coursesData) ? coursesData.length : 0;
-      const enrolledCourses = normalizedEnrolledCourses.length;
+      const enrolledCourses = currentCoursesFiltered.length;
       const availableCourses = Math.max(totalCourses - enrolledCourses, 0);
-      const completedCourses = Array.isArray(completionRequests)
-        ? completionRequests.filter((request) => request.status === 'approved').length
-        : 0;
+      const completedCoursesCount = completedCourses.length;
 
       const nextCompletionStatusByCourse = {};
       if (Array.isArray(completionRequests)) {
         completionRequests.forEach((request) => {
-          const courseId = request?.course_id ? String(request.course_id) : '';
+          const courseId = normalizeCourseId(request?.course_id);
           if (courseId && !nextCompletionStatusByCourse[courseId]) {
             nextCompletionStatusByCourse[courseId] = request.status;
           }
         });
       }
 
-      setCourses(normalizedEnrolledCourses.slice(0, 6));
+      setCurrentCourses(currentCoursesFiltered.slice(0, 6));
+      setCompletedCoursesList(completedCourses.slice(0, 6));
       setCompletionStatusByCourse(nextCompletionStatusByCourse);
-      setStats({ totalCourses, enrolledCourses, availableCourses, completedCourses });
+      setStats({ totalCourses, enrolledCourses, availableCourses, completedCourses: completedCoursesCount });
       setDashboardError('');
       setLoadingCourses(false);
     } catch (error) {
@@ -210,10 +253,10 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* My Courses Section */}
+          {/* Current Courses Section */}
           <div className="mb-8">
             <div className="flex justify-between items-center mb-6">
-              <h2 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>My Courses</h2>
+              <h2 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Current Courses</h2>
               <Link 
                 to="/courses"
                 className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-2"
@@ -224,9 +267,9 @@ export default function Dashboard() {
 
             {loadingCourses ? (
               <p className={`text-center py-12 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading courses...</p>
-            ) : courses.length > 0 ? (
+            ) : currentCourses.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {courses.map(course => (
+                {currentCourses.map(course => (
                   <div 
                     key={course.id || course.course_id}
                     className={`rounded-lg p-6 border transition duration-300 group ${darkMode ? 'bg-slate-900 border-slate-600 hover:border-emerald-600' : 'bg-slate-100 border-slate-300 hover:border-emerald-500'}`}
@@ -236,6 +279,9 @@ export default function Dashboard() {
                     </h3>
                     <p className={`mb-4 line-clamp-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       {course.course_description}
+                    </p>
+                    <p className={`mb-4 text-sm font-semibold ${darkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                      {Number.isFinite(Number(course.enrollment_count)) ? Number(course.enrollment_count) : 0}/30 enrolled
                     </p>
                     <div className="flex justify-between items-center">
                       <span className="text-emerald-400 font-semibold">
@@ -287,9 +333,41 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className={`text-center py-12 rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-100 border-slate-300'}`}>
-                <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>You are not enrolled in any courses yet.</p>
+                <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>You are not enrolled in any current courses.</p>
               </div>
             )}
+          </div>
+
+          {/* Completed Courses Section */}
+          <div className="mb-8">
+            <h2 className={`text-3xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-gray-800'}`}>Completed Courses</h2>
+            {loadingCourses ? (
+              <p className={`text-center py-12 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading courses...</p>
+            ) : completedCoursesList.length > 0 ? (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {completedCoursesList.map((course) => (
+                  <div
+                    key={`completed-${course.id || course.course_id}`}
+                    className={`rounded-lg p-6 border transition duration-300 ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-100 border-slate-300'}`}
+                  >
+                    <h3 className={`text-xl font-bold mb-2 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                      {course.course_title || course.name}
+                    </h3>
+                    <p className={`mb-4 line-clamp-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {course.course_description}
+                    </p>
+                    <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800">
+                      Completed
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className={`text-center py-12 rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-100 border-slate-300'}`}>
+                <p className={`text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>You have no completed courses yet.</p>
+              </div>
+            )}
+
             {dashboardError && (
               <div className={`mt-4 border px-6 py-4 rounded-lg ${darkMode ? 'bg-red-900 border-red-600 text-red-200' : 'bg-red-100 border-red-400 text-red-800'}`}>
                 {dashboardError}
