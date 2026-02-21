@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
+import ThemeToggle from './ThemeToggle'
 
 export default function Navbar() {
   const { user, isAdmin, isAuthenticated, logout } = useAuth()
+  const { darkMode } = useTheme()
 
   const handleLogout = async () => {
     await logout()
@@ -13,8 +16,11 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <nav className="flex justify-between items-center py-4">
           <Link to="/home" className="flex items-center space-x-2 hover:opacity-80 transition">
-            <div className="text-4xl">🎓</div>
-            <h1 className="text-3xl font-bold">Kormaia</h1>
+            <img
+              src={darkMode ? '/img/darkModeLogo.png' : '/img/lightModeLogo.png'}
+              alt="Coda logo"
+              className="h-14 w-auto"
+            />
           </Link>
           <ul className="hidden md:flex space-x-8 font-medium text-lg">
             <li>
@@ -41,6 +47,7 @@ export default function Navbar() {
             )}
           </ul>
           <div className="flex gap-3">
+            <ThemeToggle />
             {isAuthenticated && (
               <div className="hidden lg:flex items-center px-3 py-2 rounded-lg bg-white/10 text-xs font-mono text-emerald-200 border border-white/20">
                 admin:{String(isAdmin)} raw:{String(user?.is_admin ?? user?.isAdmin ?? 'null')}

@@ -10,9 +10,9 @@ const pool = require('./config/database');
 const passport = require('./config/passport');
 require('dotenv').config({ path: path.resolve(__dirname, '.env'), override: true });
 
-console.log("Server starting...")
+console.log("Server starting...");
 const PORT = process.env.PORT || 3001;
-const CLIENT_URL = 'http://localhost:5173';
+const CLIENT_URL = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
 
 const app = express();
 const ensureCompletionRequestsTable = async () => {
@@ -72,7 +72,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.get('/home', (req, res) => {
-  res.redirect('http://localhost:5173/home');
+  res.redirect(`${CLIENT_URL}/home`);
 });
 
 // Middleware to check authentication
@@ -201,10 +201,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   );
 
   app.get('/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: 'http://localhost:5173/login?error=auth_failed' }),
+    passport.authenticate('google', { failureRedirect: `${CLIENT_URL}/login?error=auth_failed` }),
     (req, res) => {
       // Successful authentication, redirect to home
-      res.redirect('http://localhost:5173/home');
+      res.redirect(`${CLIENT_URL}/home`);
     }
   );
 } else {
@@ -616,7 +616,7 @@ app.get("/api", (req, res) => {
   res.json({ message: "Hello from server!" });
 });
 
-// REMOVED AUTHENTICATION -Put bacck authentication when done
+// Authenticated classes listing route
 app.get("/api/class2", isAuthenticated, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM class2 ORDER BY id');
@@ -661,26 +661,6 @@ app.get("/api/search-classes", isAuthenticated, async (req, res) => {
     });
   }
 });
-
-app.put("/api/profile/update", isAuthenticated, async (req, res) => {
-  const { name, } = req.body
-
-  try {
-     result = await pool.query(
-      `UPDATE users SET name = $1 WHERE id = $2 RETURNING *`,
-      [name, req.user.id]
-    );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({ message: 'Profile updated successfully', user: result.rows[0] });
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({ message: 'Failed to update profile' });
-  }
-})
 
 app.get('/api/profile/classes', isAuthenticated, async (req, res) => {
   try {
