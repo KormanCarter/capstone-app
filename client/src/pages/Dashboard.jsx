@@ -161,6 +161,19 @@ export default function Dashboard() {
     return '';
   };
 
+  const getDisplayedEnrollmentCount = (course) => {
+    const baseCount = Number.isFinite(Number(course?.enrollment_count)) ? Number(course.enrollment_count) : 0;
+    const courseId = getCourseId(course);
+    if (!courseId) return baseCount;
+
+    const isCompleted = completionStatusByCourse[courseId] === 'approved';
+    if (isCompleted) {
+      return Math.max(0, baseCount - 1);
+    }
+
+    return baseCount;
+  };
+
   const handleCompleteCourse = async (course) => {
     const courseId = getCourseId(course);
     if (!courseId) {
@@ -280,7 +293,7 @@ export default function Dashboard() {
                       {course.course_description}
                     </p>
                     <p className={`mb-4 text-sm font-semibold ${darkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
-                      {Number.isFinite(Number(course.enrollment_count)) ? Number(course.enrollment_count) : 0}/30 enrolled
+                      {getDisplayedEnrollmentCount(course)}/30 enrolled
                     </p>
                     <div className="flex justify-between items-center">
                       <span className="text-emerald-400 font-semibold">
