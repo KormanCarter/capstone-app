@@ -1,56 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Header from '../../utilities/Header.jsx';
-import Footer from '../../utilities/Footer.jsx';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import ThemeToggle from '../components/ThemeToggle';
 
 const ProfilePage = () => {
     const { user, isAdmin, isAuthenticated, loading } = useAuth();
     const { darkMode } = useTheme();
     const navigate = useNavigate();
     const [isEditing, setIsEditing] = useState(false);
-    const [enrolledClasses, setEnrolledClasses] = useState([]);
-    const [classesLoading, setClassesLoading] = useState(false);
     const [profileData, setProfileData] = useState({
         name: '',
         email: '',
     });
-
-    const fetchEnrolledClasses = async () => {
-        try {
-            setClassesLoading(true);
-            const response = await fetch('/api/profile/classes', { credentials: 'include' });
-            if (response.ok) {
-                const data = await response.json();
-                setEnrolledClasses(Array.isArray(data) ? data : []);
-                return;
-            }
-
-            if (user?.id) {
-                const adminResponse = await fetch('/api/admin/users', { credentials: 'include' });
-                if (adminResponse.ok) {
-                    const users = await adminResponse.json();
-                    const currentUser = Array.isArray(users)
-                        ? users.find((adminUser) => String(adminUser.id) === String(user.id))
-                        : null;
-                    const fallbackClasses = Array.isArray(currentUser?.classes) ? currentUser.classes : [];
-                    setEnrolledClasses(
-                        fallbackClasses.map((classId) => ({
-                            course_id: String(classId),
-                            course_title: `Enrolled Course ${classId}`,
-                            course_description: null,
-                            unresolved: true,
-                        }))
-                    );
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching enrolled classes:', error);
-        } finally {
-            setClassesLoading(false);
-        }
-    };
 
     useEffect(() => {
         if (!loading && !isAuthenticated) {
@@ -62,7 +25,6 @@ const ProfilePage = () => {
                 name: user.name || '',
                 email: user.email || '',
             });
-            fetchEnrolledClasses();
         }
     }, [user, isAuthenticated, loading, navigate]);
 
@@ -132,6 +94,7 @@ const ProfilePage = () => {
                             <p className="text-emerald-100">
                                 {profileData.email}
                             </p>
+                            
                             {isAdmin && (
                                 <p className="mt-2 inline-block bg-white/20 text-white text-sm px-3 py-1 rounded-full font-semibold">
                                     Admin Account
@@ -144,13 +107,13 @@ const ProfilePage = () => {
                 {/* Profile Content */}
                 <div className={`border rounded-b-2xl p-8 ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-100 border-slate-300'}`}>
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Profile Information</h2>
+                        <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Settings</h2>
                         {!isEditing ? (
                             <button
                                 onClick={() => setIsEditing(true)}
                                 className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-emerald-500 transition duration-300"
                             >
-                                Edit Profile
+                                Edit Name
                             </button>
                         ) : (
                             <div className="flex gap-3">
@@ -158,7 +121,7 @@ const ProfilePage = () => {
                                     onClick={handleSave}
                                     className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-emerald-500 transition duration-300"
                                 >
-                                    Save Changes
+                                    Save Name
                                 </button>
                                 <button
                                     onClick={handleCancel}
@@ -171,6 +134,18 @@ const ProfilePage = () => {
                     </div>
 
                     <div className="space-y-6">
+                        <div>
+                            <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Theme
+                            </label>
+                            <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${darkMode ? 'border-slate-700 bg-slate-800/70' : 'border-slate-300 bg-white'}`}>
+                                <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                                    {darkMode ? 'Dark Mode' : 'Light Mode'}
+                                </span>
+                                <ThemeToggle />
+                            </div>
+                        </div>
+
                         {/* Name Field */}
                         <div>
                             <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -190,19 +165,6 @@ const ProfilePage = () => {
                                     {profileData.name || 'Not provided'}
                                 </p>
                             )}
-                        </div>
-
-                        {/* Email Field (Read-only) */}
-                        <div>
-                            <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Email Address
-                            </label>
-                            <p className={`text-lg ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                                {profileData.email}
-                            </p>
-                            <p className={`text-sm mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
-                                Email cannot be changed
-                            </p>
                         </div>
                     </div>
 
@@ -245,40 +207,7 @@ const ProfilePage = () => {
                     </div>
                 </div>
 
-                {/* Enrolled Courses Section */}
-                <div className={`mt-8 border rounded-2xl p-8 ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-100 border-slate-300'}`}>
-                    <h2 className={`text-2xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-gray-800'}`}>My Enrolled Courses</h2>
-                    {classesLoading ? (
-                        <p className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            Loading enrolled courses...
-                        </p>
-                    ) : enrolledClasses.length === 0 ? (
-                        <div className={`border rounded-lg p-4 transition ${darkMode ? 'bg-slate-800 border-slate-700 hover:border-emerald-600' : 'bg-white border-slate-300 hover:border-emerald-500'}`}>
-                            <p className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                No courses enrolled yet.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="grid md:grid-cols-2 gap-4">
-                            {enrolledClasses.map((enrolledClass) => (
-                                <div
-                                    key={enrolledClass.id || enrolledClass.course_id}
-                                    className={`border rounded-lg p-4 transition ${darkMode ? 'bg-slate-800 border-slate-700 hover:border-emerald-600' : 'bg-white border-slate-300 hover:border-emerald-500'}`}
-                                >
-                                    <h3 className={`text-lg font-semibold mb-1 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                                        {enrolledClass.course_title || enrolledClass.name || 'Untitled Course'}
-                                    </h3>
-                                    <p className="text-sm text-emerald-500 mb-2">{enrolledClass.course_id || enrolledClass.id}</p>
-                                    {enrolledClass.course_description && (
-                                        <p className={`text-sm line-clamp-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{enrolledClass.course_description}</p>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
             </div>
-            <Footer />
         </div>
     );
 };

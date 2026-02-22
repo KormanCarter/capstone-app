@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Header from '../../utilities/Header'
-import Footer from '../../utilities/Footer'
 import { useTheme } from '../contexts/ThemeContext'
 
 export default function SignUp() {
@@ -182,7 +181,6 @@ export default function SignUp() {
             </div>
           </div>
         </div>
-        <Footer />
       </section>
     </div>
   )

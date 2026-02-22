@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../src/contexts/AuthContext'
 import { useTheme } from '../src/contexts/ThemeContext'
-import ThemeToggle from '../src/components/ThemeToggle'
 
 function Header() {
     const { isAuthenticated, logout } = useAuth()
@@ -15,16 +14,19 @@ function Header() {
         <header className={`${darkMode ? 'bg-black text-white' : 'bg-white text-black'} shadow-xl sticky top-0 z-50 transition-colors duration-300`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-2">
-              <h1 className="text-3xl font-bold">Kormacatron</h1>
-            </div>
+            <Link to="/home" className="flex items-center space-x-2 hover:opacity-80 transition">
+              <img
+                src={darkMode ? '/img/lightModeLogo.png' : '/img/darkModeLogo.png'}
+                alt="Kormacatron logo"
+                className="h-30 w-auto"
+              />
+            </Link>
             <ul className="hidden md:flex space-x-8 font-medium text-lg">
               <li><Link to="/home" className="hover:text-emerald-400 transition duration-300 border-transparent border-1 rounded-md hover:border-emerald-400 p-1">Home</Link></li>
               <li><Link to="/courses" className="hover:text-emerald-400 transition duration-300 border-transparent border-1 rounded-md hover:border-emerald-400 p-1">Courses</Link></li>
               <li><Link to="/about" className="hover:text-emerald-400 transition duration-300 border-transparent border-1 rounded-md hover:border-emerald-400 p-1">About</Link></li>
             </ul>
             <div className="flex gap-3 items-center">
-              <ThemeToggle />
               {isAuthenticated ? (
                 <>
                   <Link to="/profile">

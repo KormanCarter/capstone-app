@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import Header from '../../utilities/Header.jsx'
-import Footer from '../../utilities/Footer.jsx'
 import Navbar from '../components/Navbar';
 import SearchBar from '../components/SearchBar';
 import PopupComponent from '../components/PopUp.jsx';
@@ -8,6 +7,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function CoursesPage() {
+    const MAX_ENROLLMENT = 30;
     const { darkMode } = useTheme();
     const { user } = useAuth();
     const [showPopup, setShowPopup] = useState(false);
@@ -39,6 +39,60 @@ export default function CoursesPage() {
         if (matchedCourse?.course_id) return String(matchedCourse.course_id);
         if (matchedCourse?.id) return String(matchedCourse.id);
         return normalized;
+    };
+
+    const getEnrollmentCount = (course) => {
+        const count = Number(course?.enrollment_count);
+        return Number.isFinite(count) ? count : 0;
+    };
+
+    const getDisplayedEnrollmentCount = (course) => {
+        const baseCount = getEnrollmentCount(course);
+        const courseId = normalizeCourseId(getCourseId(course));
+        if (!courseId) return baseCount;
+
+        const isCompleted = completionStatusByCourse[courseId] === 'approved';
+        const isStillMarkedEnrolled = enrolledCourseIds.includes(courseId);
+
+        if (isCompleted && isStillMarkedEnrolled) {
+            return Math.max(0, baseCount - 1);
+        }
+
+        return baseCount;
+    };
+
+    const getCourseStatus = (course) => {
+        const courseId = normalizeCourseId(getCourseId(course));
+        if (!courseId) return { label: 'Sign Up', tone: 'available' };
+
+        const completionStatus = completionStatusByCourse[courseId];
+        if (completionStatus === 'approved') {
+            return { label: 'Completed', tone: 'completed' };
+        }
+
+        if (enrolledCourseIds.includes(courseId)) {
+            return { label: 'Enrolled', tone: 'enrolled' };
+        }
+
+        return { label: 'Sign Up', tone: 'available' };
+    };
+
+    const updateEnrollmentCountForCourse = (courseId, nextCount) => {
+        const normalizedCourseId = normalizeCourseId(courseId);
+        const safeCount = Math.max(0, Number(nextCount) || 0);
+
+        setCourses((previous) => previous.map((course) => {
+            const currentCourseId = normalizeCourseId(getCourseId(course), previous);
+            if (currentCourseId !== normalizedCourseId) return course;
+            return { ...course, enrollment_count: safeCount };
+        }));
+
+        setSelectedCourse((previous) => {
+            if (!previous) return previous;
+            const currentCourseId = normalizeCourseId(getCourseId(previous));
+            if (currentCourseId !== normalizedCourseId) return previous;
+            return { ...previous, enrollment_count: safeCount };
+        });
     };
 
     const fetchEnrolledClasses = async () => {
@@ -210,6 +264,15 @@ export default function CoursesPage() {
                     return;
                 }
 
+                if (response.status === 409) {
+                    const nextCount = Number(data.enrollment_count);
+                    if (Number.isFinite(nextCount)) {
+                        updateEnrollmentCountForCourse(courseId, nextCount);
+                    }
+                    setError(data.message || 'Class is full (30 max)');
+                    return;
+                }
+
                 if (response.status === 404 && user?.id) {
                     const usersResponse = await fetch('/api/admin/users', { credentials: 'include' });
                     if (!usersResponse.ok) {
@@ -273,6 +336,11 @@ export default function CoursesPage() {
                 }
                 return [...previous, courseId];
             });
+
+            const nextCountFromServer = Number(data.enrollment_count);
+            if (Number.isFinite(nextCountFromServer)) {
+                updateEnrollmentCountForCourse(courseId, nextCountFromServer);
+            }
         } catch (toggleError) {
             console.error('Enrollment toggle error:', toggleError);
             setError('Failed to update enrollment');
@@ -331,7 +399,10 @@ export default function CoursesPage() {
 
     const selectedCourseId = selectedCourse ? normalizeCourseId(getCourseId(selectedCourse)) : '';
     const selectedCompletionStatus = selectedCourseId ? completionStatusByCourse[selectedCourseId] : null;
+    const isSelectedCompleted = selectedCompletionStatus === 'approved';
     const isSelectedEnrolled = selectedCourseId ? enrolledCourseIds.includes(selectedCourseId) : false;
+    const selectedEnrollmentCount = selectedCourse ? getDisplayedEnrollmentCount(selectedCourse) : 0;
+    const isSelectedCourseFull = selectedEnrollmentCount >= MAX_ENROLLMENT;
 
 
     return (
@@ -359,18 +430,35 @@ export default function CoursesPage() {
                 
                 {!loading && !error && courses.length > 0 && (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {courses.map(class2 => (
-                            <div 
-                                key={class2.id} 
-                                onClick={() => openPopup(class2)}
-                                className={`border rounded-lg p-6 transition duration-300 cursor-pointer ${darkMode ? 'bg-slate-900 border-slate-600 hover:border-emerald-600' : 'bg-slate-100 border-slate-300 hover:border-emerald-500'}`}
-                            >
-                                <h3 className={`text-2xl font-bold mb-3 ${darkMode ? 'text-gray-50' : 'text-gray-800'}`}>{class2.name || class2.course_title}</h3>
-                                <p className={`mb-4 line-clamp-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{class2.course_description}</p>
-                                <div className="flex justify-between items-center">
+                        {courses.map((class2) => {
+                            const courseStatus = getCourseStatus(class2);
+                            const courseStatusClass = courseStatus.tone === 'completed'
+                                ? (darkMode ? 'bg-emerald-900/60 text-emerald-300 border-emerald-700' : 'bg-emerald-100 text-emerald-800 border-emerald-300')
+                                : courseStatus.tone === 'enrolled'
+                                    ? (darkMode ? 'bg-blue-900/60 text-blue-300 border-blue-700' : 'bg-blue-100 text-blue-800 border-blue-300')
+                                    : (darkMode ? 'bg-amber-900/60 text-amber-300 border-amber-700' : 'bg-amber-100 text-amber-800 border-amber-300');
+
+                            return (
+                                <div
+                                    key={getCourseId(class2) || class2.id}
+                                    onClick={() => openPopup(class2)}
+                                    className={`border rounded-lg p-6 transition duration-300 cursor-pointer ${darkMode ? 'bg-slate-900 border-slate-600 hover:border-emerald-600' : 'bg-slate-100 border-slate-300 hover:border-emerald-500'}`}
+                                >
+                                    <div className="mb-4 flex justify-between items-start gap-3">
+                                        <h3 className={`text-2xl font-bold ${darkMode ? 'text-gray-50' : 'text-gray-800'}`}>{class2.name || class2.course_title}</h3>
+                                        <span className={`text-xs font-semibold px-3 py-1 rounded-full border whitespace-nowrap ${courseStatusClass}`}>
+                                            {courseStatus.label}
+                                        </span>
+                                    </div>
+                                    <p className={`mb-4 line-clamp-3 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{class2.course_description}</p>
+                                    <p className={`text-sm font-semibold ${darkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                                        {getDisplayedEnrollmentCount(class2)}/{MAX_ENROLLMENT} enrolled
+                                    </p>
+                                    <div className="flex justify-between items-center">
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
                 
@@ -392,6 +480,13 @@ export default function CoursesPage() {
                                 <div>
                                     <h3 className={`text-sm uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Description</h3>
                                     <p className={`text-lg leading-relaxed ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>{selectedCourse.course_description}</p>
+                                </div>
+
+                                <div>
+                                    <h3 className={`text-sm uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Enrollment</h3>
+                                    <p className={`text-lg ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                                        {selectedEnrollmentCount}/{MAX_ENROLLMENT} enrolled
+                                    </p>
                                 </div>
                                 
                                 {selectedCourse.tuition_cost && (
@@ -416,21 +511,27 @@ export default function CoursesPage() {
                                 )}
                                 
                                 <div className="pt-6 flex gap-4">
-                                    <button
-                                        onClick={handleEnrollmentToggle}
-                                        disabled={enrollmentBusy}
-                                        className={`flex-1 text-white px-6 py-3 rounded-lg font-semibold transition duration-300 ${
-                                            enrolledCourseIds.includes(getCourseId(selectedCourse))
-                                                ? 'bg-red-600 hover:bg-red-500'
-                                                : 'bg-emerald-600 hover:bg-emerald-500'
-                                        } ${enrollmentBusy ? 'opacity-70 cursor-not-allowed' : ''}`}
-                                    >
-                                        {enrollmentBusy
-                                            ? 'Saving...'
-                                            : enrolledCourseIds.includes(getCourseId(selectedCourse))
-                                                ? 'Unenroll'
-                                                : 'Enroll Now'}
-                                    </button>
+                                    {!isSelectedCompleted && (
+                                        <button
+                                            onClick={handleEnrollmentToggle}
+                                            disabled={enrollmentBusy || (!isSelectedEnrolled && isSelectedCourseFull)}
+                                            className={`flex-1 text-white px-6 py-3 rounded-lg font-semibold transition duration-300 ${
+                                                !isSelectedEnrolled && isSelectedCourseFull
+                                                    ? 'bg-gray-600'
+                                                    : isSelectedEnrolled
+                                                    ? 'bg-red-600 hover:bg-red-500'
+                                                    : 'bg-emerald-600 hover:bg-emerald-500'
+                                            } ${(enrollmentBusy || (!isSelectedEnrolled && isSelectedCourseFull)) ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                        >
+                                            {enrollmentBusy
+                                                ? 'Saving...'
+                                                : !isSelectedEnrolled && isSelectedCourseFull
+                                                    ? 'Course Full'
+                                                : isSelectedEnrolled
+                                                    ? 'Unenroll'
+                                                    : 'Enroll Now'}
+                                        </button>
+                                    )}
                                     <button
                                         onClick={handleCompletionRequest}
                                         disabled={completionBusy || !isSelectedEnrolled || selectedCompletionStatus === 'pending' || selectedCompletionStatus === 'approved'}
@@ -464,7 +565,6 @@ export default function CoursesPage() {
                     )}
                 </PopupComponent>
             </div>
-            <Footer />
         </div>
     );
 }
