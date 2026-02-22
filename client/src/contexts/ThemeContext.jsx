@@ -4,7 +4,6 @@ const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const [darkMode, setDarkMode] = useState(() => {
-    // Check localStorage or default to false (light mode)
     const saved = localStorage.getItem('theme');
     return saved === 'dark';
   });
@@ -13,7 +12,6 @@ export function ThemeProvider({ children }) {
     setDarkMode(!darkMode);
   };
 
-  // Apply the dark class to the HTML element
   useEffect(() => {
     const root = document.documentElement;
     if (darkMode) {

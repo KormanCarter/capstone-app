@@ -20,7 +20,6 @@ export default function Dashboard() {
   });
   const [loadingCourses, setLoadingCourses] = useState(true);
 
-  // Fetch courses and stats when component mounts
   useEffect(() => {
     if (user?.id) {
       fetchDashboardData();
