@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../src/contexts/AuthContext'
 import { useTheme } from '../src/contexts/ThemeContext'
-import ThemeToggle from '../src/components/ThemeToggle'
 
 function Header() {
     const { isAuthenticated, logout } = useAuth()
@@ -28,7 +27,6 @@ function Header() {
               <li><Link to="/about" className="hover:text-emerald-400 transition duration-300 border-transparent border-1 rounded-md hover:border-emerald-400 p-1">About</Link></li>
             </ul>
             <div className="flex gap-3 items-center">
-              <ThemeToggle />
               {isAuthenticated ? (
                 <>
                   <Link to="/profile">

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Header from '../../utilities/Header.jsx';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import ThemeToggle from '../components/ThemeToggle';
 
 const ProfilePage = () => {
     const { user, isAdmin, isAuthenticated, loading } = useAuth();
@@ -93,6 +94,7 @@ const ProfilePage = () => {
                             <p className="text-emerald-100">
                                 {profileData.email}
                             </p>
+                            
                             {isAdmin && (
                                 <p className="mt-2 inline-block bg-white/20 text-white text-sm px-3 py-1 rounded-full font-semibold">
                                     Admin Account
@@ -105,13 +107,13 @@ const ProfilePage = () => {
                 {/* Profile Content */}
                 <div className={`border rounded-b-2xl p-8 ${darkMode ? 'bg-slate-900 border-slate-600' : 'bg-slate-100 border-slate-300'}`}>
                     <div className="flex justify-between items-center mb-6">
-                        <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Profile Information</h2>
+                        <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Settings</h2>
                         {!isEditing ? (
                             <button
                                 onClick={() => setIsEditing(true)}
                                 className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-emerald-500 transition duration-300"
                             >
-                                Edit Profile
+                                Edit Name
                             </button>
                         ) : (
                             <div className="flex gap-3">
@@ -119,7 +121,7 @@ const ProfilePage = () => {
                                     onClick={handleSave}
                                     className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-emerald-500 transition duration-300"
                                 >
-                                    Save Changes
+                                    Save Name
                                 </button>
                                 <button
                                     onClick={handleCancel}
@@ -132,6 +134,18 @@ const ProfilePage = () => {
                     </div>
 
                     <div className="space-y-6">
+                        <div>
+                            <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Theme
+                            </label>
+                            <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${darkMode ? 'border-slate-700 bg-slate-800/70' : 'border-slate-300 bg-white'}`}>
+                                <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                                    {darkMode ? 'Dark Mode' : 'Light Mode'}
+                                </span>
+                                <ThemeToggle />
+                            </div>
+                        </div>
+
                         {/* Name Field */}
                         <div>
                             <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -151,19 +165,6 @@ const ProfilePage = () => {
                                     {profileData.name || 'Not provided'}
                                 </p>
                             )}
-                        </div>
-
-                        {/* Email Field (Read-only) */}
-                        <div>
-                            <label className={`block text-sm font-semibold mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Email Address
-                            </label>
-                            <p className={`text-lg ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                                {profileData.email}
-                            </p>
-                            <p className={`text-sm mt-1 ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
-                                Email cannot be changed
-                            </p>
                         </div>
                     </div>
 

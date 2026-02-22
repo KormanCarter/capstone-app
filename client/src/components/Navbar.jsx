@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
-import ThemeToggle from './ThemeToggle'
 
 export default function Navbar() {
   const { user, isAdmin, isAuthenticated, logout } = useAuth()
@@ -47,7 +46,6 @@ export default function Navbar() {
             )}
           </ul>
           <div className="flex gap-3">
-            <ThemeToggle />
             {isAuthenticated && (
               <div className="hidden lg:flex items-center px-3 py-2 rounded-lg bg-white/10 text-xs font-mono text-emerald-200 border border-white/20">
                 admin:{String(isAdmin)} raw:{String(user?.is_admin ?? user?.isAdmin ?? 'null')}
