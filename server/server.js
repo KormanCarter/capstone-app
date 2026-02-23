@@ -64,8 +64,62 @@ const ensureUserCourseArrays = async () => {
   }
 };
 
-ensureCompletionRequestsTable();
-ensureUserCourseArrays();
+const backfillCompletedClassesFromApprovals = async () => {
+  try {
+    await pool.query(`
+      WITH approved_expanded AS (
+        SELECT
+          cr.user_id,
+          cr.course_id AS approved_raw_id,
+          COALESCE(c.course_id, cr.course_id) AS normalized_course_id,
+          c.id::text AS class_id
+        FROM completion_requests
+        cr
+        LEFT JOIN class2 c
+          ON c.course_id = cr.course_id OR c.id::text = cr.course_id
+        WHERE status = 'approved'
+      ),
+      approved AS (
+        SELECT
+          user_id,
+          array_agg(DISTINCT normalized_course_id) AS approved_course_ids,
+          array_agg(DISTINCT approved_raw_id) AS approved_raw_ids,
+          array_agg(DISTINCT class_id) FILTER (WHERE class_id IS NOT NULL) AS approved_class_ids
+        FROM approved_expanded
+        GROUP BY user_id
+      )
+      UPDATE users u
+      SET completed_classes = (
+            SELECT COALESCE(array_agg(DISTINCT value), ARRAY[]::text[])
+            FROM unnest(COALESCE(u.completed_classes, ARRAY[]::text[]) || COALESCE(a.approved_course_ids, ARRAY[]::text[])) AS value
+          ),
+          classes = (
+            SELECT COALESCE(array_agg(value), ARRAY[]::text[])
+            FROM unnest(COALESCE(u.classes, ARRAY[]::text[])) AS value
+            WHERE NOT (
+              value = ANY(COALESCE(a.approved_course_ids, ARRAY[]::text[]))
+              OR value = ANY(COALESCE(a.approved_raw_ids, ARRAY[]::text[]))
+              OR value = ANY(COALESCE(a.approved_class_ids, ARRAY[]::text[]))
+            )
+          ),
+          updated_at = CURRENT_TIMESTAMP
+      FROM approved a
+      WHERE u.id = a.user_id
+    `);
+  } catch (error) {
+    console.error('Error backfilling completed classes from approvals:', error);
+  }
+};
+
+const initializeData = async () => {
+  await ensureCompletionRequestsTable();
+  await ensureUserCourseArrays();
+  await backfillCompletedClassesFromApprovals();
+};
+
+initializeData().catch((error) => {
+  console.error('Initialization error:', error);
+});
 
 // Configure CORS
 app.use(cors({
