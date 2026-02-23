@@ -75,7 +75,13 @@ export default function AboutPage() {
                             </div>
 
                             <div className="text-center">
-                                <div className={`w-44 h-44 mx-auto rounded-full border-2 ${darkMode ? 'border-slate-600 bg-slate-800' : 'border-slate-400 bg-white'}`}></div>
+                                <div className={`w-44 h-44 mx-auto rounded-full border-2 overflow-hidden ${darkMode ? 'border-slate-600 bg-slate-800' : 'border-slate-400 bg-white'}`}>
+                                    <img
+                                        src="/img/sicko1.jpg"
+                                        alt="Kaia Frazier"
+                                        className="w-full h-full object-cover object-center scale-110 translate-x-2"
+                                    />
+                                </div>
                                 <h3 className={`mt-4 text-xl font-bold ${darkMode ? 'text-gray-50' : 'text-gray-800'}`}>Kaia Frazier</h3>
                                 <p className={`mt-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                     MTECH student and co-founder of Coda. Focused on app structure, features,
