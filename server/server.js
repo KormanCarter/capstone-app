@@ -664,6 +664,13 @@ app.get("/api/class2", isAuthenticated, async (req, res) => {
          FROM users u
          WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
            AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text])
+           AND NOT EXISTS (
+             SELECT 1
+             FROM completion_requests cr
+             WHERE cr.user_id = u.id
+               AND cr.status = 'approved'
+               AND (cr.course_id = c.course_id::text OR cr.course_id = c.id::text)
+           )
        ) ec ON TRUE
        ORDER BY c.id`
     );
@@ -690,6 +697,13 @@ app.get("/api/search-classes", isAuthenticated, async (req, res) => {
            FROM users u
            WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
              AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text])
+             AND NOT EXISTS (
+               SELECT 1
+               FROM completion_requests cr
+               WHERE cr.user_id = u.id
+                 AND cr.status = 'approved'
+                 AND (cr.course_id = c.course_id::text OR cr.course_id = c.id::text)
+             )
          ) ec ON TRUE
          ORDER BY c.course_id`
       );
@@ -703,6 +717,13 @@ app.get("/api/search-classes", isAuthenticated, async (req, res) => {
            FROM users u
            WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
              AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text])
+             AND NOT EXISTS (
+               SELECT 1
+               FROM completion_requests cr
+               WHERE cr.user_id = u.id
+                 AND cr.status = 'approved'
+                 AND (cr.course_id = c.course_id::text OR cr.course_id = c.id::text)
+             )
          ) ec ON TRUE
          WHERE LOWER(c.course_id) LIKE LOWER($1) 
          OR LOWER(c.course_title) LIKE LOWER($1) 
@@ -743,6 +764,13 @@ app.get('/api/profile/classes', isAuthenticated, async (req, res) => {
          FROM users u
          WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
            AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text])
+           AND NOT EXISTS (
+             SELECT 1
+             FROM completion_requests cr
+             WHERE cr.user_id = u.id
+               AND cr.status = 'approved'
+               AND (cr.course_id = c.course_id::text OR cr.course_id = c.id::text)
+           )
        ) ec ON TRUE
        WHERE (c.course_id = ANY($1::text[]) OR c.id::text = ANY($1::text[]))
          AND NOT (c.course_id = ANY($2::text[]) OR c.id::text = ANY($2::text[]))
@@ -774,6 +802,13 @@ app.get('/api/profile/completed-classes', isAuthenticated, async (req, res) => {
          FROM users u
          WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
            AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text])
+           AND NOT EXISTS (
+             SELECT 1
+             FROM completion_requests cr
+             WHERE cr.user_id = u.id
+               AND cr.status = 'approved'
+               AND (cr.course_id = c.course_id::text OR cr.course_id = c.id::text)
+           )
        ) ec ON TRUE
        WHERE c.course_id = ANY($1::text[]) OR c.id::text = ANY($1::text[])
        ORDER BY c.course_id`,
@@ -836,9 +871,16 @@ app.post('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) 
 
     const enrollmentCountResult = await client.query(
       `SELECT COUNT(*)::int AS enrollment_count
-       FROM users
-       WHERE COALESCE(classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text]
-         AND NOT (COALESCE(completed_classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text])`,
+       FROM users u
+       WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text]
+         AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text])
+         AND NOT EXISTS (
+           SELECT 1
+           FROM completion_requests cr
+           WHERE cr.user_id = u.id
+             AND cr.status = 'approved'
+             AND cr.course_id = ANY(ARRAY[$1::text, $2::text])
+         )`,
       [normalizedCourseId, classId]
     );
 
@@ -907,9 +949,16 @@ app.delete('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res
 
     const enrollmentCountResult = await pool.query(
       `SELECT COUNT(*)::int AS enrollment_count
-       FROM users
-       WHERE COALESCE(classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text]
-         AND NOT (COALESCE(completed_classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text])`,
+       FROM users u
+       WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text]
+         AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text])
+         AND NOT EXISTS (
+           SELECT 1
+           FROM completion_requests cr
+           WHERE cr.user_id = u.id
+             AND cr.status = 'approved'
+             AND cr.course_id = ANY(ARRAY[$1::text, $2::text])
+         )`,
       [normalizedCourseId, classId]
     );
 
