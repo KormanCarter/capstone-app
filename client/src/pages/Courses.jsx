@@ -14,6 +14,7 @@ export default function CoursesPage() {
     const [selectedCourse, setSelectedCourse] = useState(null);
     const [courses, setCourses] = useState([]);
     const [enrolledCourseIds, setEnrolledCourseIds] = useState([]);
+    const [completedCourseIds, setCompletedCourseIds] = useState([]);
     const [enrollmentBusy, setEnrollmentBusy] = useState(false);
     const [completionBusy, setCompletionBusy] = useState(false);
     const [completionStatusByCourse, setCompletionStatusByCourse] = useState({});
@@ -47,18 +48,7 @@ export default function CoursesPage() {
     };
 
     const getDisplayedEnrollmentCount = (course) => {
-        const baseCount = getEnrollmentCount(course);
-        const courseId = normalizeCourseId(getCourseId(course));
-        if (!courseId) return baseCount;
-
-        const isCompleted = completionStatusByCourse[courseId] === 'approved';
-        const isStillMarkedEnrolled = enrolledCourseIds.includes(courseId);
-
-        if (isCompleted && isStillMarkedEnrolled) {
-            return Math.max(0, baseCount - 1);
-        }
-
-        return baseCount;
+        return getEnrollmentCount(course);
     };
 
     const getCourseStatus = (course) => {
@@ -66,7 +56,7 @@ export default function CoursesPage() {
         if (!courseId) return { label: 'Sign Up', tone: 'available' };
 
         const completionStatus = completionStatusByCourse[courseId];
-        if (completionStatus === 'approved') {
+        if (completedCourseIds.includes(courseId) || completionStatus === 'approved') {
             return { label: 'Completed', tone: 'completed' };
         }
 
@@ -214,9 +204,30 @@ export default function CoursesPage() {
         }
     };
 
+    const fetchCompletedClasses = async () => {
+        try {
+            const response = await fetch('/api/profile/completed-classes', { credentials: 'include' });
+            if (!response.ok) {
+                setCompletedCourseIds([]);
+                return;
+            }
+
+            const data = await response.json();
+            const ids = Array.isArray(data)
+                ? data.map((course) => normalizeCourseId(getCourseId(course))).filter(Boolean)
+                : [];
+
+            setCompletedCourseIds(ids);
+        } catch (fetchError) {
+            console.error('Error fetching completed classes:', fetchError);
+            setCompletedCourseIds([]);
+        }
+    };
+
     useEffect(() => {
         fetchCourses();
         fetchEnrolledClasses();
+        fetchCompletedClasses();
         fetchCompletionRequests();
     }, [user?.id]);
 
@@ -399,7 +410,9 @@ export default function CoursesPage() {
 
     const selectedCourseId = selectedCourse ? normalizeCourseId(getCourseId(selectedCourse)) : '';
     const selectedCompletionStatus = selectedCourseId ? completionStatusByCourse[selectedCourseId] : null;
-    const isSelectedCompleted = selectedCompletionStatus === 'approved';
+    const isSelectedCompleted = selectedCourseId
+        ? (completedCourseIds.includes(selectedCourseId) || selectedCompletionStatus === 'approved')
+        : false;
     const isSelectedEnrolled = selectedCourseId ? enrolledCourseIds.includes(selectedCourseId) : false;
     const selectedEnrollmentCount = selectedCourse ? getDisplayedEnrollmentCount(selectedCourse) : 0;
     const isSelectedCourseFull = selectedEnrollmentCount >= MAX_ENROLLMENT;

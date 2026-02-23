@@ -61,6 +61,8 @@ export default function Dashboard() {
 
       const completionResponse = await fetch('/api/completion-requests/my', { credentials: 'include' });
       const completionRequests = completionResponse.ok ? await completionResponse.json() : [];
+      const completedResponse = await fetch('/api/profile/completed-classes', { credentials: 'include' });
+      const completedData = completedResponse.ok ? await completedResponse.json() : [];
 
       const classLookup = new Map();
       const normalizeCourseId = (value) => {
@@ -95,29 +97,42 @@ export default function Dashboard() {
         ? completionRequests.filter((request) => request.status === 'approved')
         : [];
 
-      const completedCourseIds = Array.from(
-        new Set(
-          approvedRequests
-            .map((request) => normalizeCourseId(request?.course_id))
-            .filter(Boolean)
-        )
-      );
+      const completedFromProfile = Array.isArray(completedData)
+        ? completedData.map((course) => {
+            const key = course?.course_id || course?.id;
+            if (!key) return course;
+            return classLookup.get(String(key)) || course;
+          })
+        : [];
 
-      const completedCourses = completedCourseIds.map((courseId) => {
+      const completedById = new Map();
+
+      completedFromProfile.forEach((course) => {
+        const courseId = normalizeCourseId(course?.course_id || course?.id);
+        if (!courseId || completedById.has(courseId)) return;
+        completedById.set(courseId, course);
+      });
+
+      approvedRequests.forEach((request) => {
+        const courseId = normalizeCourseId(request?.course_id);
+        if (!courseId || completedById.has(courseId)) return;
+
         const fromCatalog = classLookup.get(courseId);
-        if (fromCatalog) return fromCatalog;
+        if (fromCatalog) {
+          completedById.set(courseId, fromCatalog);
+          return;
+        }
 
-        const matchingRequest = approvedRequests.find(
-          (request) => normalizeCourseId(request?.course_id) === courseId
-        );
-
-        return {
+        completedById.set(courseId, {
           course_id: courseId,
-          course_title: matchingRequest?.course_title || `Completed Course ${courseId}`,
+          course_title: request?.course_title || `Completed Course ${courseId}`,
           course_description: 'Completed course',
           enrollment_count: 0,
-        };
+        });
       });
+
+      const completedCourseIds = Array.from(completedById.keys());
+      const completedCourses = Array.from(completedById.values());
 
       const completedCourseIdSet = new Set(completedCourseIds);
       const currentCoursesFiltered = normalizedEnrolledCourses.filter((course) => {
@@ -161,16 +176,7 @@ export default function Dashboard() {
   };
 
   const getDisplayedEnrollmentCount = (course) => {
-    const baseCount = Number.isFinite(Number(course?.enrollment_count)) ? Number(course.enrollment_count) : 0;
-    const courseId = getCourseId(course);
-    if (!courseId) return baseCount;
-
-    const isCompleted = completionStatusByCourse[courseId] === 'approved';
-    if (isCompleted) {
-      return Math.max(0, baseCount - 1);
-    }
-
-    return baseCount;
+    return Number.isFinite(Number(course?.enrollment_count)) ? Number(course.enrollment_count) : 0;
   };
 
   const handleCompleteCourse = async (course) => {

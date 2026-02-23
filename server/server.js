@@ -53,7 +53,19 @@ const ensureCompletionRequestsTable = async () => {
   }
 };
 
+const ensureUserCourseArrays = async () => {
+  try {
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS classes TEXT[] DEFAULT ARRAY[]::text[]");
+    await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS completed_classes TEXT[] DEFAULT ARRAY[]::text[]");
+    await pool.query("UPDATE users SET classes = ARRAY[]::text[] WHERE classes IS NULL");
+    await pool.query("UPDATE users SET completed_classes = ARRAY[]::text[] WHERE completed_classes IS NULL");
+  } catch (error) {
+    console.error('Error ensuring users course array columns:', error);
+  }
+};
+
 ensureCompletionRequestsTable();
+ensureUserCourseArrays();
 
 // Configure CORS
 app.use(cors({
@@ -277,7 +289,7 @@ app.get('/api/admin/users', isAuthenticated, isAdmin, async (req, res) => {
     );
 
     const availableColumns = new Set(tableInfo.rows.map((row) => row.column_name));
-    const returningColumns = ['id', 'email', 'name', 'is_admin', 'classes', 'created_at']
+    const returningColumns = ['id', 'email', 'name', 'is_admin', 'classes', 'completed_classes', 'created_at']
       .filter((columnName) => availableColumns.has(columnName));
 
     if (returningColumns.length === 0) {
@@ -327,6 +339,7 @@ app.put('/api/admin/users/:id', isAuthenticated, isAdmin, async (req, res) => {
     maybeAddUpdate('email');
     maybeAddUpdate('is_admin', toBoolean);
     maybeAddUpdate('classes', (classes) => Array.isArray(classes) ? classes : []);
+    maybeAddUpdate('completed_classes', (classes) => Array.isArray(classes) ? classes : []);
 
     if (updates.length === 0) {
       return res.status(400).json({ message: 'No valid fields provided for update' });
@@ -334,7 +347,7 @@ app.put('/api/admin/users/:id', isAuthenticated, isAdmin, async (req, res) => {
 
     values.push(targetUserId);
 
-    const returningColumns = ['id', 'email', 'name', 'is_admin', 'classes']
+    const returningColumns = ['id', 'email', 'name', 'is_admin', 'classes', 'completed_classes']
       .filter((columnName) => availableColumns.has(columnName));
     const returningClause = returningColumns.length > 0
       ? ` RETURNING ${returningColumns.join(', ')}`
@@ -650,6 +663,14 @@ app.get("/api/class2", isAuthenticated, async (req, res) => {
          SELECT COUNT(*)::int AS enrollment_count
          FROM users u
          WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
+           AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text])
+           AND NOT EXISTS (
+             SELECT 1
+             FROM completion_requests cr
+             WHERE cr.user_id = u.id
+               AND cr.status = 'approved'
+               AND (cr.course_id = c.course_id::text OR cr.course_id = c.id::text)
+           )
        ) ec ON TRUE
        ORDER BY c.id`
     );
@@ -675,6 +696,14 @@ app.get("/api/search-classes", isAuthenticated, async (req, res) => {
            SELECT COUNT(*)::int AS enrollment_count
            FROM users u
            WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
+             AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text])
+             AND NOT EXISTS (
+               SELECT 1
+               FROM completion_requests cr
+               WHERE cr.user_id = u.id
+                 AND cr.status = 'approved'
+                 AND (cr.course_id = c.course_id::text OR cr.course_id = c.id::text)
+             )
          ) ec ON TRUE
          ORDER BY c.course_id`
       );
@@ -687,6 +716,14 @@ app.get("/api/search-classes", isAuthenticated, async (req, res) => {
            SELECT COUNT(*)::int AS enrollment_count
            FROM users u
            WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
+             AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text])
+             AND NOT EXISTS (
+               SELECT 1
+               FROM completion_requests cr
+               WHERE cr.user_id = u.id
+                 AND cr.status = 'approved'
+                 AND (cr.course_id = c.course_id::text OR cr.course_id = c.id::text)
+             )
          ) ec ON TRUE
          WHERE LOWER(c.course_id) LIKE LOWER($1) 
          OR LOWER(c.course_title) LIKE LOWER($1) 
@@ -712,10 +749,11 @@ app.get("/api/search-classes", isAuthenticated, async (req, res) => {
 
 app.get('/api/profile/classes', isAuthenticated, async (req, res) => {
   try {
-    const userResult = await pool.query('SELECT classes FROM users WHERE id = $1', [req.user.id]);
+    const userResult = await pool.query('SELECT classes, completed_classes FROM users WHERE id = $1', [req.user.id]);
     if (userResult.rows.length === 0) return res.status(404).json({ message: 'User not found' });
 
     const classes = Array.isArray(userResult.rows[0].classes) ? userResult.rows[0].classes : [];
+    const completedClasses = Array.isArray(userResult.rows[0].completed_classes) ? userResult.rows[0].completed_classes : [];
     if (classes.length === 0) return res.json([]);
 
     const enrolledResult = await pool.query(
@@ -725,16 +763,62 @@ app.get('/api/profile/classes', isAuthenticated, async (req, res) => {
          SELECT COUNT(*)::int AS enrollment_count
          FROM users u
          WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
+           AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text])
+           AND NOT EXISTS (
+             SELECT 1
+             FROM completion_requests cr
+             WHERE cr.user_id = u.id
+               AND cr.status = 'approved'
+               AND (cr.course_id = c.course_id::text OR cr.course_id = c.id::text)
+           )
        ) ec ON TRUE
-       WHERE c.course_id = ANY($1::text[]) OR c.id::text = ANY($1::text[])
+       WHERE (c.course_id = ANY($1::text[]) OR c.id::text = ANY($1::text[]))
+         AND NOT (c.course_id = ANY($2::text[]) OR c.id::text = ANY($2::text[]))
        ORDER BY c.course_id`,
-      [classes]
+      [classes, completedClasses]
     );
 
     return res.json(enrolledResult.rows);
   } catch (error) {
     console.error('Error fetching enrolled classes:', error);
     return res.status(500).json({ message: 'Failed to fetch enrolled classes' });
+  }
+});
+
+app.get('/api/profile/completed-classes', isAuthenticated, async (req, res) => {
+  try {
+    const userResult = await pool.query('SELECT completed_classes FROM users WHERE id = $1', [req.user.id]);
+    if (userResult.rows.length === 0) return res.status(404).json({ message: 'User not found' });
+
+    const completedClasses = Array.isArray(userResult.rows[0].completed_classes) ? userResult.rows[0].completed_classes : [];
+    if (completedClasses.length === 0) return res.json([]);
+
+    const completedResult = await pool.query(
+      `SELECT c.*,
+              COALESCE(ec.enrollment_count, 0) AS enrollment_count
+       FROM class2 c
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::int AS enrollment_count
+         FROM users u
+         WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text]
+           AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[c.course_id::text, c.id::text])
+           AND NOT EXISTS (
+             SELECT 1
+             FROM completion_requests cr
+             WHERE cr.user_id = u.id
+               AND cr.status = 'approved'
+               AND (cr.course_id = c.course_id::text OR cr.course_id = c.id::text)
+           )
+       ) ec ON TRUE
+       WHERE c.course_id = ANY($1::text[]) OR c.id::text = ANY($1::text[])
+       ORDER BY c.course_id`,
+      [completedClasses]
+    );
+
+    return res.json(completedResult.rows);
+  } catch (error) {
+    console.error('Error fetching completed classes:', error);
+    return res.status(500).json({ message: 'Failed to fetch completed classes' });
   }
 });
 
@@ -762,7 +846,7 @@ app.post('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) 
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [normalizedCourseId]);
 
     const userResult = await client.query(
-      'SELECT classes FROM users WHERE id = $1 FOR UPDATE',
+      'SELECT classes, completed_classes FROM users WHERE id = $1 FOR UPDATE',
       [req.user.id]
     );
 
@@ -772,12 +856,31 @@ app.post('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) 
     }
 
     const userClasses = Array.isArray(userResult.rows[0].classes) ? userResult.rows[0].classes : [];
+    const userCompletedClasses = Array.isArray(userResult.rows[0].completed_classes)
+      ? userResult.rows[0].completed_classes
+      : [];
     const alreadyEnrolled = userClasses.includes(normalizedCourseId) || userClasses.includes(classId);
+    const alreadyCompleted = userCompletedClasses.includes(normalizedCourseId) || userCompletedClasses.includes(classId);
+
+    if (alreadyCompleted) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        message: 'Class is already completed',
+      });
+    }
 
     const enrollmentCountResult = await client.query(
       `SELECT COUNT(*)::int AS enrollment_count
-       FROM users
-       WHERE COALESCE(classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text]`,
+       FROM users u
+       WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text]
+         AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text])
+         AND NOT EXISTS (
+           SELECT 1
+           FROM completion_requests cr
+           WHERE cr.user_id = u.id
+             AND cr.status = 'approved'
+             AND cr.course_id = ANY(ARRAY[$1::text, $2::text])
+         )`,
       [normalizedCourseId, classId]
     );
 
@@ -846,8 +949,16 @@ app.delete('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res
 
     const enrollmentCountResult = await pool.query(
       `SELECT COUNT(*)::int AS enrollment_count
-       FROM users
-       WHERE COALESCE(classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text]`,
+       FROM users u
+       WHERE COALESCE(u.classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text]
+         AND NOT (COALESCE(u.completed_classes, ARRAY[]::text[]) && ARRAY[$1::text, $2::text])
+         AND NOT EXISTS (
+           SELECT 1
+           FROM completion_requests cr
+           WHERE cr.user_id = u.id
+             AND cr.status = 'approved'
+             AND cr.course_id = ANY(ARRAY[$1::text, $2::text])
+         )`,
       [normalizedCourseId, classId]
     );
 
@@ -887,8 +998,13 @@ app.post('/api/classes/:courseId/completion-request', isAuthenticated, async (re
     if (classResult.rows.length === 0) return res.status(404).json({ message: 'Class not found' });
 
     const normalizedCourseId = classResult.rows[0].course_id;
-    const userResult = await pool.query('SELECT classes FROM users WHERE id = $1', [req.user.id]);
+    const userResult = await pool.query('SELECT classes, completed_classes FROM users WHERE id = $1', [req.user.id]);
     const enrolledClasses = Array.isArray(userResult.rows[0]?.classes) ? userResult.rows[0].classes : [];
+    const completedClasses = Array.isArray(userResult.rows[0]?.completed_classes) ? userResult.rows[0].completed_classes : [];
+
+    if (completedClasses.includes(normalizedCourseId) || completedClasses.includes(courseId)) {
+      return res.status(409).json({ message: 'Class is already marked as completed' });
+    }
 
     if (!enrolledClasses.includes(normalizedCourseId) && !enrolledClasses.includes(courseId)) {
       return res.status(400).json({ message: 'You must be enrolled before requesting completion' });
@@ -963,6 +1079,10 @@ app.post('/api/admin/completion-requests/:id/approve', isAuthenticated, isAdmin,
     await client.query(
       `UPDATE users
        SET classes = array_remove(array_remove(array_remove(COALESCE(classes, ARRAY[]::text[]), $1), $2), $3),
+           completed_classes = CASE
+             WHEN $2 = ANY(COALESCE(completed_classes, ARRAY[]::text[])) THEN COALESCE(completed_classes, ARRAY[]::text[])
+             ELSE array_append(COALESCE(completed_classes, ARRAY[]::text[]), $2)
+           END,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $4`,
       [approvedRequest.course_id, normalizedCourseId, classId, approvedRequest.user_id]
