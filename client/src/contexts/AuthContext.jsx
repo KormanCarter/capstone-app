@@ -143,9 +143,14 @@ export const AuthProvider = ({ children }) => {
   }
 
   const loginWithGoogle = () => {
-    const backendUrl = (import.meta.env.VITE_BACKEND_URL || (
-      window.location.hostname === 'localhost' ? 'http://localhost:3001' : window.location.origin
-    )).replace(/\/$/, '')
+    const configuredBackend = import.meta.env.VITE_BACKEND_URL
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    const fallbackBackend = isLocalhost
+      ? 'http://localhost:3001'
+      : (window.location.port === '5173'
+        ? `${window.location.protocol}//${window.location.hostname}:3001`
+        : window.location.origin)
+    const backendUrl = (configuredBackend || fallbackBackend).replace(/\/$/, '')
     window.location.href = `${backendUrl}/auth/google`
   }
 

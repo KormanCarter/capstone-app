@@ -8,11 +8,19 @@ const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcryptjs');
 const pool = require('./config/database');
 const passport = require('./config/passport');
-require('dotenv').config({ path: path.resolve(__dirname, '.env'), override: true });
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 console.log("Server starting...");
 const PORT = process.env.PORT || 3001;
-const CLIENT_URL = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
+const SERVER_URL = (process.env.SERVER_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+const CLIENT_URL = (
+  process.env.CLIENT_URL
+  || (process.env.NODE_ENV === 'production' ? SERVER_URL : 'http://localhost:5173')
+).replace(/\/$/, '');
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || `${CLIENT_URL},${SERVER_URL}`)
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 const app = express();
 const ensureCompletionRequestsTable = async () => {
@@ -41,9 +49,7 @@ ensureCompletionRequestsTable();
 
 // Configure CORS
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-domain.com'] // Replace with your production domain
-    : ['http://localhost:5174', 'http://localhost:5173', 'http://localhost:3000'],
+  origin: CORS_ORIGINS,
   credentials: true
 }));
 
@@ -62,6 +68,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
@@ -801,6 +808,8 @@ app.post('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) 
     client.release();
   }
 });
+console.log("CLIENT ID:", process.env.GOOGLE_CLIENT_ID);
+console.log("CLIENT SECRET:", process.env.GOOGLE_CLIENT_SECRET);
 
 app.delete('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) => {
   const MAX_ENROLLMENT = 30;

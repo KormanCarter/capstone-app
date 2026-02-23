@@ -64,12 +64,15 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 SERVER_URL=http://localhost:3001
 GOOGLE_CALLBACK_URL=http://localhost:3001/auth/google/callback
+# Optional: comma-separated allowed browser origins for cookies/CORS
+CORS_ORIGINS=http://localhost:5173,http://localhost:3001
 ```
 
 Notes:
 
 - `DB_URL` is used for PostgreSQL connection.
 - Google login is optional. Local email/password login works without it.
+- For Render (or any hosted deploy), set `SERVER_URL` to your backend URL and `CLIENT_URL` to your frontend URL (or backend URL if server serves the built client).
 
 ## 3) Set up the database
 
