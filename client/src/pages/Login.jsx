@@ -5,7 +5,7 @@ import Header from '../../utilities/Header'
 import { useTheme } from '../contexts/ThemeContext'
 
 export default function Login() {
-  const { login, loginWithGoogle, isAuthenticated, loading } = useAuth()
+  const { login, loginWithGoogle, isAuthenticated, loading, googleAuthEnabled } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { darkMode } = useTheme()
@@ -27,6 +27,9 @@ export default function Login() {
     const searchParams = new URLSearchParams(location.search)
     if (searchParams.get('error') === 'auth_failed') {
       setError('Google sign-in failed. Please try again.')
+    }
+    if (searchParams.get('error') === 'google_not_configured') {
+      setError('Google sign-in is not configured on this deployment yet.')
     }
   }, [location.search])
 
@@ -133,23 +136,27 @@ export default function Login() {
               </p>
             </div>
 
-            {/* Divider */}
-            <div className="mt-6 flex items-center">
-              <div className="flex-1 border-t border-slate-600"></div>
-              <span className={`px-4 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>OR</span>
-              <div className="flex-1 border-t border-slate-600"></div>
-            </div>
+            {googleAuthEnabled && (
+              <>
+                {/* Divider */}
+                <div className="mt-6 flex items-center">
+                  <div className="flex-1 border-t border-slate-600"></div>
+                  <span className={`px-4 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>OR</span>
+                  <div className="flex-1 border-t border-slate-600"></div>
+                </div>
 
-            {/* Social Login Buttons */}
-            <div className="mt-6">
-              <button 
-                onClick={loginWithGoogle}
-                type="button"
-                className={`w-full flex items-center justify-center px-4 py-3 border border-slate-600 rounded-lg transition duration-300 cursor-pointer ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-300'}`}
-              >
-                <span className={`text-sm font-semibold ${darkMode ? 'text-gray-50' : 'text-gray-800'}`}>Continue with Google</span>
-              </button>
-            </div>
+                {/* Social Login Buttons */}
+                <div className="mt-6">
+                  <button 
+                    onClick={loginWithGoogle}
+                    type="button"
+                    className={`w-full flex items-center justify-center px-4 py-3 border border-slate-600 rounded-lg transition duration-300 cursor-pointer ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-300'}`}
+                  >
+                    <span className={`text-sm font-semibold ${darkMode ? 'text-gray-50' : 'text-gray-800'}`}>Continue with Google</span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>

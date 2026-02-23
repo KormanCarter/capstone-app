@@ -64,12 +64,15 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 SERVER_URL=http://localhost:3001
 GOOGLE_CALLBACK_URL=http://localhost:3001/auth/google/callback
+# Optional: comma-separated allowed browser origins for cookies/CORS
+CORS_ORIGINS=http://localhost:5173,http://localhost:3001
 ```
 
 Notes:
 
 - `DB_URL` is used for PostgreSQL connection.
 - Google login is optional. Local email/password login works without it.
+- For Render (or any hosted deploy), set `SERVER_URL` to your backend URL and `CLIENT_URL` to your frontend URL (or backend URL if server serves the built client).
 
 ## 3) Set up the database
 
@@ -116,6 +119,19 @@ Then open:
 
 - `npm run dev` - Start server in watch mode
 - `npm start` - Start server normally
+
+## Deploy on Render
+
+Use a Web Service pointed at the repository root with these commands:
+
+- Build Command: `cd client && npm install && npm run build && cd ../server && npm install`
+- Start Command: `cd server && npm start`
+
+Important:
+
+- Do not use `npm run dev` or `vite` as the Render start command.
+- `server/package.json` start script should stay `node server.js`.
+- In Render environment variables, set `NODE_ENV=production`.
 
 ## Common issues
 

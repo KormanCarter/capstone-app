@@ -64,6 +64,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   const port = process.env.PORT || 3001;
   const serverBaseUrl = (process.env.SERVER_URL || `http://localhost:${port}`).replace(/\/$/, '');
   const googleCallbackUrl = process.env.GOOGLE_CALLBACK_URL || `${serverBaseUrl}/auth/google/callback`;
+  console.log(`[Passport] Google callback URL: ${googleCallbackUrl}`);
 
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,

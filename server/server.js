@@ -8,13 +8,29 @@ const pgSession = require('connect-pg-simple')(session);
 const bcrypt = require('bcryptjs');
 const pool = require('./config/database');
 const passport = require('./config/passport');
-require('dotenv').config({ path: path.resolve(__dirname, '.env'), override: true });
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 console.log("Server starting...");
 const PORT = process.env.PORT || 3001;
-const CLIENT_URL = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, '');
+const GOOGLE_OAUTH_ENABLED = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+const SERVER_URL = (process.env.SERVER_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+const CLIENT_URL = (
+  process.env.CLIENT_URL
+  || (process.env.NODE_ENV === 'production' ? SERVER_URL : 'http://localhost:5173')
+).replace(/\/$/, '');
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || `${CLIENT_URL},${SERVER_URL}`)
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const IS_CROSS_ORIGIN = CLIENT_URL !== SERVER_URL;
 
 const app = express();
+const clientDistPath = path.resolve(__dirname, "../client/dist");
+
+if (IS_PRODUCTION) {
+  app.set('trust proxy', 1);
+}
 const ensureCompletionRequestsTable = async () => {
   try {
     await pool.query(`
@@ -41,13 +57,13 @@ ensureCompletionRequestsTable();
 
 // Configure CORS
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-domain.com'] // Replace with your production domain
-    : ['http://localhost:5174', 'http://localhost:5173', 'http://localhost:3000'],
+  origin: CORS_ORIGINS,
   credentials: true
 }));
 
-app.use(express.static(path.resolve(__dirname, "../client/dist")));
+if (IS_PRODUCTION) {
+  app.use(express.static(clientDistPath));
+}
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -61,7 +77,8 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: IS_PRODUCTION,
+    sameSite: IS_PRODUCTION && IS_CROSS_ORIGIN ? 'none' : 'lax',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
@@ -72,6 +89,9 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.get('/home', (req, res) => {
+  if (IS_PRODUCTION && CLIENT_URL === SERVER_URL) {
+    return res.sendFile(path.join(clientDistPath, 'index.html'));
+  }
   res.redirect(`${CLIENT_URL}/home`);
 });
 
@@ -106,6 +126,10 @@ const isAdmin = (req, res, next) => {
 };
 
 // Auth Routes
+app.get('/auth/providers', (req, res) => {
+  res.json({ google: GOOGLE_OAUTH_ENABLED });
+});
+
 // Local registration
 app.post('/auth/register', async (req, res) => {
   try {
@@ -195,7 +219,7 @@ app.post('/auth/login', (req, res, next) => {
 });
 
 // Google OAuth Routes (only if Google credentials are configured)
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+if (GOOGLE_OAUTH_ENABLED) {
   app.get('/auth/google',
     passport.authenticate('google', { scope: ['profile', 'email'] })
   );
@@ -208,9 +232,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     }
   );
 } else {
-  // If Google OAuth is not configured, return an error
+  // If Google OAuth is not configured, redirect with a friendly error
   app.get('/auth/google', (req, res) => {
-    res.status(500).json({ message: 'Google OAuth not configured' });
+    res.redirect(`${CLIENT_URL}/login?error=google_not_configured`);
   });
 }
 
@@ -802,6 +826,7 @@ app.post('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) 
   }
 });
 
+
 app.delete('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) => {
   const MAX_ENROLLMENT = 30;
   try {
@@ -958,6 +983,13 @@ app.post('/api/admin/completion-requests/:id/approve', isAuthenticated, isAdmin,
     client.release();
   }
 });
+
+if (IS_PRODUCTION) {
+  app.get(/^\/(?!api|auth).*/, (req, res) => {
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
+
 app.listen(PORT, () => {
   console.log(`Server listening on ${PORT}`);
 });
