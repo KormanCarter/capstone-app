@@ -808,8 +808,7 @@ app.post('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) 
     client.release();
   }
 });
-console.log("CLIENT ID:", process.env.GOOGLE_CLIENT_ID);
-console.log("CLIENT SECRET:", process.env.GOOGLE_CLIENT_SECRET);
+
 
 app.delete('/api/classes/:courseId/enrollment', isAuthenticated, async (req, res) => {
   const MAX_ENROLLMENT = 30;
