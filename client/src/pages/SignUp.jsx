@@ -5,7 +5,7 @@ import Header from '../../utilities/Header'
 import { useTheme } from '../contexts/ThemeContext'
 
 export default function SignUp() {
-  const { register, loginWithGoogle, isAuthenticated, loading } = useAuth()
+  const { register, loginWithGoogle, isAuthenticated, loading, googleAuthEnabled } = useAuth()
   const navigate = useNavigate()
   const { darkMode } = useTheme()
 
@@ -164,21 +164,25 @@ export default function SignUp() {
               </p>
             </div>
 
-            <div className="mt-6 flex items-center">
-              <div className="flex-1 border-t border-slate-600"></div>
-              <span className="px-4 text-gray-400 text-sm">OR</span>
-              <div className="flex-1 border-t border-slate-600"></div>
-            </div>
+            {googleAuthEnabled && (
+              <>
+                <div className="mt-6 flex items-center">
+                  <div className="flex-1 border-t border-slate-600"></div>
+                  <span className="px-4 text-gray-400 text-sm">OR</span>
+                  <div className="flex-1 border-t border-slate-600"></div>
+                </div>
 
-            <div className="mt-6">
-              <button
-                onClick={loginWithGoogle}
-                type="button"
-                className={`w-full flex items-center justify-center px-4 py-3 border border-slate-600 rounded-lg ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-300'} transition duration-400 cursor-pointer`}
-              >
-                <span className={`text-sm font-semibold ${darkMode ? 'text-gray-50' : 'text-gray-800'} cursor-pointer`}>Sign up with Google</span>
-              </button>
-            </div>
+                <div className="mt-6">
+                  <button
+                    onClick={loginWithGoogle}
+                    type="button"
+                    className={`w-full flex items-center justify-center px-4 py-3 border border-slate-600 rounded-lg ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-300'} transition duration-400 cursor-pointer`}
+                  >
+                    <span className={`text-sm font-semibold ${darkMode ? 'text-gray-50' : 'text-gray-800'} cursor-pointer`}>Sign up with Google</span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>

@@ -14,6 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [googleAuthEnabled, setGoogleAuthEnabled] = useState(false)
 
   const toBoolean = (value) => {
     if (typeof value === 'boolean') return value
@@ -47,7 +48,25 @@ export const AuthProvider = ({ children }) => {
   // Check if user is authenticated on app load
   useEffect(() => {
     checkAuth()
+    checkProviders()
   }, [])
+
+  const checkProviders = async () => {
+    try {
+      const response = await fetch('/auth/providers', {
+        credentials: 'include'
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setGoogleAuthEnabled(Boolean(data?.google))
+      } else {
+        setGoogleAuthEnabled(false)
+      }
+    } catch {
+      setGoogleAuthEnabled(false)
+    }
+  }
 
   const checkAuth = async () => {
     try {
@@ -143,6 +162,10 @@ export const AuthProvider = ({ children }) => {
   }
 
   const loginWithGoogle = () => {
+    if (!googleAuthEnabled) {
+      return
+    }
+
     const configuredBackend = import.meta.env.VITE_BACKEND_URL
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     const fallbackBackend = isLocalhost
@@ -161,6 +184,7 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     loginWithGoogle,
+    googleAuthEnabled,
     isAdmin,
     isAuthenticated: !!user
   }
