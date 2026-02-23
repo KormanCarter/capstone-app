@@ -120,6 +120,19 @@ Then open:
 - `npm run dev` - Start server in watch mode
 - `npm start` - Start server normally
 
+## Deploy on Render
+
+Use a Web Service pointed at the repository root with these commands:
+
+- Build Command: `cd client && npm install && npm run build && cd ../server && npm install`
+- Start Command: `cd server && npm start`
+
+Important:
+
+- Do not use `npm run dev` or `vite` as the Render start command.
+- `server/package.json` start script should stay `node server.js`.
+- In Render environment variables, set `NODE_ENV=production`.
+
 ## Common issues
 
 - **Database connection error**: Check `DB_URL` and make sure PostgreSQL is running.

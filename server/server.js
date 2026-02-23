@@ -23,6 +23,7 @@ const CORS_ORIGINS = (process.env.CORS_ORIGINS || `${CLIENT_URL},${SERVER_URL}`)
   .filter(Boolean);
 
 const app = express();
+const clientDistPath = path.resolve(__dirname, "../client/dist");
 const ensureCompletionRequestsTable = async () => {
   try {
     await pool.query(`
@@ -53,7 +54,9 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.static(path.resolve(__dirname, "../client/dist")));
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(clientDistPath));
+}
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -79,6 +82,9 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.get('/home', (req, res) => {
+  if (process.env.NODE_ENV === 'production' && CLIENT_URL === SERVER_URL) {
+    return res.sendFile(path.join(clientDistPath, 'index.html'));
+  }
   res.redirect(`${CLIENT_URL}/home`);
 });
 
@@ -966,6 +972,13 @@ app.post('/api/admin/completion-requests/:id/approve', isAuthenticated, isAdmin,
     client.release();
   }
 });
+
+if (process.env.NODE_ENV === 'production') {
+  app.get(/^\/(?!api|auth).*/, (req, res) => {
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
+
 app.listen(PORT, () => {
   console.log(`Server listening on ${PORT}`);
 });
